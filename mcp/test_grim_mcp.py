@@ -20,7 +20,7 @@ class Server:
         return r["content"][0]["text"], r["isError"]
 
     def close(self):
-        self.p.stdin.close(); self.p.wait()
+        self.p.stdin.close(); self.p.wait(); self.p.stdout.close()
 
 
 class McpTests(unittest.TestCase):
@@ -92,6 +92,47 @@ class McpTests(unittest.TestCase):
         out, err = self.s.tool("cards_review", id=card["id"], rating="good")
         self.assertFalse(err, out)
         self.assertEqual(json.loads(self.s.tool("cards_status")[0])["new"], 0)
+
+    def test_changes_are_claudes_unless_asked_for_everyones(self):
+        self.s.tool("append", target="today", markdown="- from claude")
+        mine, err = self.s.tool("changes", since="1h")
+        self.assertFalse(err, mine)
+        self.assertTrue(json.loads(mine))
+        self.assertTrue(all(c["author"] == "claude" for c in json.loads(mine)))
+        none, _ = self.s.tool("changes", since="1h", author="me")
+        self.assertEqual(json.loads(none), [])
+        every, _ = self.s.tool("changes", since="1h", author="any")
+        self.assertEqual(len(json.loads(every)), len(json.loads(mine)))
+
+    def test_sync_status_on_a_graph_that_never_synced(self):
+        out, err = self.s.tool("sync_status")
+        self.assertFalse(err, out)
+        st = json.loads(out)
+        self.assertFalse(st["configured"])
+        self.assertEqual(st["issues"], [])
+
+    def test_reindex_keeps_search_working(self):
+        self.s.tool("append", target="Soup", markdown="- simmer the stock #kitchen")
+        out, err = self.s.tool("reindex")
+        self.assertFalse(err, out)
+        self.assertIn("[stock]", self.s.tool("search", query="stock")[0])
+        self.assertIn("simmer", self.s.tool("blocks_with_tag", tag="kitchen")[0])
+
+    def test_every_tool_has_a_description_and_required_fields_match(self):
+        for t in self.s.call("tools/list")["result"]["tools"]:
+            self.assertTrue(t["description"], t["name"])
+            self.assertTrue(set(t["inputSchema"].get("required", [])) <= set(t["inputSchema"]["properties"]), t["name"])
+
+    def test_organizing_a_page(self):
+        self.s.tool("append", target="Old name", markdown="- a\n- b")
+        self.s.tool("append", target="Linker", markdown="- see [[Old name]]")
+        out, err = self.s.tool("rename_page", old="Old name", new="New name")
+        self.assertFalse(err, out)
+        self.assertIn("[[New name]]", self.s.tool("get_page", title="Linker")[0])
+        out, err = self.s.tool("set_favorite", page="New name")
+        self.assertFalse(err, out)
+        self.assertIn("New name", self.s.tool("favorites")[0])
+        self.assertIn("Linker", self.s.tool("backlinks", title="New name")[0])
 
     def test_read_only_query_rejects_writes(self):
         _, err = self.s.tool("query", sql="DELETE FROM pages")

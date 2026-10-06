@@ -45,8 +45,14 @@ struct Sidebar: View {
                 Spacer()
             }
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .contentShape(Rectangle()).onTapGesture { if let e = store.lastSyncError { store.show("Sync: \(e)") }; store.syncNow() }
+            .contentShape(Rectangle()).onTapGesture { tapSync() }
         }
+    }
+
+    private func tapSync() {
+        if case .failed = store.syncStatus, !store.syncIssues.isEmpty { store.showSyncIssues(); return }
+        if let e = store.lastSyncError { store.show("Sync: \(e)") }
+        store.syncNow()
     }
 
     private var syncColor: Color {

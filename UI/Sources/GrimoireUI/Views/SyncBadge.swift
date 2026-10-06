@@ -64,6 +64,7 @@ struct SyncBadge: View {
     }
 
     private func tap() {
+        if case .failed = store.syncStatus, !store.syncIssues.isEmpty { store.showSyncIssues(); return }
         store.show(detail)
         store.syncNow()
     }

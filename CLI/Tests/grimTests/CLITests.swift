@@ -147,3 +147,20 @@ func tempGraph() -> URL { FileManager.default.temporaryDirectory.appendingPathCo
         #expect(text.contains("[[New]]") && !text.contains("[[Old]]"))
     }
 }
+
+@Suite struct BackupCLITests {
+    @Test func backupWritesACopyThatOpensAsAGraph() throws {
+        let g = tempGraph(), dest = tempGraph()
+        _ = try grim(["append", "today", "- remember the stock", "--json"], graph: g)
+        let r = try grim(["backup", dest.path, "--json"], graph: g)
+        #expect(r.code == 0)
+        let path = (try json(r) as! [String: Any])["path"] as! String
+        #expect(path.hasPrefix(dest.path) && path.hasSuffix(".sqlite"))
+        // the copy is a whole graph: put it where grim looks and read it back
+        let restored = tempGraph()
+        try FileManager.default.createDirectory(at: restored, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: restored.appendingPathComponent("graph.sqlite"))
+        let s = try grim(["search", "stock", "--json"], graph: restored)
+        #expect(s.code == 0 && s.out.contains("remember the [stock]"))
+    }
+}

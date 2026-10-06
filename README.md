@@ -28,6 +28,7 @@ It's a personal, single-user project, built as a native replacement for Logseq. 
 - **Themes:** JSON token files that hot-reload; Midnight Sun (dark and light) ships first.
 - **Offline-first sync:** an op log replicated through a small hub over a private network, with deterministic conflict rules.
 - **Import and export:** import a Logseq graph (repeatable, report-first), always-on Markdown mirror, JSON export.
+- **Backups and sync visibility:** `grim backup` keeps checked, thinned copies; the app lists anything sync couldn't apply under *Sync Issues* and backs off when the hub is unreachable.
 - **Claude access:** the `grim` CLI and an MCP server expose the same operations; writes are recorded as an author so they can be reverted in one step.
 
 ## Tech stack

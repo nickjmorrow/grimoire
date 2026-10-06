@@ -21,6 +21,22 @@ public final class SyncClient: Sendable {
         try graph.db.read { try Row.fetchAll($0, sql: "SELECT at, source, reason FROM sync_issues ORDER BY id").map { (at: $0["at"], source: $0["source"], reason: $0["reason"]) } }
     }
 
+    public struct Issue: Sendable, Identifiable, Equatable { public var id: Int64; public var at: Date; public var source: String; public var payload: String; public var reason: String }
+
+    /// Everything sync couldn't apply or send, oldest first, for the Sync Issues panel.
+    public func issueList() throws -> [Issue] {
+        try graph.db.read { try Row.fetchAll($0, sql: "SELECT id, at, source, payload, reason FROM sync_issues ORDER BY id").map {
+            Issue(id: $0["id"], at: Date(timeIntervalSince1970: Double($0["at"] as Int64) / 1000), source: $0["source"], payload: $0["payload"], reason: $0["reason"]) } }
+    }
+
+    /// Marks the issues as seen. The changes they describe were already dropped; this only empties the list.
+    public func clearIssues() throws { try graph.db.write { try $0.execute(sql: "DELETE FROM sync_issues") } }
+
+    /// Seconds to wait before the next try after `failures` failed syncs in a row: 30 s, doubling, capped at 10 minutes.
+    public static func retryDelay(afterFailures failures: Int) -> TimeInterval {
+        failures <= 0 ? 0 : min(30 * pow(2, Double(min(failures, 10) - 1)), 600)
+    }
+
     // MARK: the loop
 
     /// Ops per push request: a first sync of a big graph goes up in pieces, each acknowledged before the next.
@@ -127,8 +143,15 @@ public final class SyncClient: Sendable {
             let device = deviceID
             let decoder = JSONDecoder()
             let ownRows = try Row.fetchAll(db, sql: "SELECT local_id, author, payload, inverse, created_at, rejected FROM ops WHERE seq IS NULL ORDER BY local_id")
-            var own: [Own] = ownRows.compactMap { r in
-                guard let op = try? decoder.decode(Op.self, from: Data((r["payload"] as String).utf8)) else { return nil }
+            var own: [Own] = try ownRows.compactMap { r in
+                guard let op = try? decoder.decode(Op.self, from: Data((r["payload"] as String).utf8)) else {
+                    // an unsent op this build can't read: keep it out of the rebase and the pushes, and say so
+                    if r["rejected"] as Int != 1 {
+                        try db.execute(sql: "UPDATE ops SET rejected = 1, inverse = NULL WHERE local_id = ?", arguments: [r["local_id"] as Int64])
+                        try Self.issue("rebase", r["payload"], "unreadable op (written by a newer version?)", db)
+                    }
+                    return nil
+                }
                 return Own(localID: r["local_id"], payload: r["payload"], op: op, author: Author(rawValue: r["author"]) ?? .me, createdAt: r["created_at"],
                            inverse: (r["inverse"] as String?).flatMap { try? decoder.decode(Op.self, from: Data($0.utf8)) }, rejected: r["rejected"] == 1)
             }
@@ -147,6 +170,7 @@ public final class SyncClient: Sendable {
             // 2. the hub's ops, in order (our own already-sequenced ones are matched to their rows)
             for r in remote {
                 let op = try? decoder.decode(Op.self, from: Data(r.payload.utf8))
+                if op == nil { try Self.issue("pull", r.payload, "unreadable op from the hub (written by a newer version?)", db) }
                 let author = Author(rawValue: r.author) ?? .me
                 var inverse: Op?
                 if let op {
@@ -194,7 +218,7 @@ public final class SyncClient: Sendable {
             SELECT order_key FROM blocks WHERE page_id = ? AND parent_id IS ? AND order_key > ? ORDER BY order_key LIMIT 1
             """, arguments: [block.pageId, block.parentId, block.orderKey])
         let stamp = ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: Double(block.updatedAt) / 1000))
-        let id = UUIDv5.make(namespace: UUIDv5.property, name: "conflict:\(block.id):\(block.updatedAt):\(block.text.hashValue)")
+        let id = UUIDv5.make(namespace: UUIDv5.property, name: "conflict:\(block.id):\(block.updatedAt):\(block.text)")
         return [.insertBlock(id: id, pageID: block.pageId, parentID: block.parentId, orderKey: OrderKey.between(block.orderKey, next ?? nil),
                              text: block.text + "\nconflict:: other device \(stamp)")]
     }

@@ -45,7 +45,11 @@ TOOLS = {
                              lambda a: ["prop", a["key"]] + ([a["value"]] if a.get("value") else [])),
     "query": (*S("Read-only SQL against the graph database (tables: pages, blocks, links, tags, block_tags, properties, block_props, cards, reviews, ops).", sql=("string", "A SELECT")),
               lambda a: ["query", T(a["sql"])]),
-    "changes": (*S("What changed since a time (ISO 8601 or 2h, 30m, 1d).", since=("string", "Default 1d", "opt")), lambda a: opt(["changes"], "--since", a.get("since"))),
+    "changes": (*S("What changed since a time (ISO 8601 or 2h, 30m, 1d). Only Claude's own changes unless author is 'any' (or 'me').",
+                   since=("string", "Default 1d", "opt"), author=("string", "claude (default), me or any", "opt")),
+                lambda a: opt(opt(["changes"], "--since", a.get("since")), "--author", a.get("author"))),
+    "sync_status": (*S("Sync health: changes not yet sent to the hub, last synced position and any sync issues (rejected or unreadable changes)."), lambda a: ["sync-status"]),
+    "reindex": (*S("Rebuild links, tags, properties and search from block text. Use when search or backlinks look stale."), lambda a: ["reindex"]),
     "append": (*S("Add Markdown blocks (a bullet outline) to the end of a page or journal. Creates the page if missing. Use 'today' for today's journal.",
                   target=("string", "Page title, journal date or 'today'"), markdown=("string", "Markdown bullets; indent two spaces per level")),
                lambda a: ["append", a["target"], T(a["markdown"])]),
@@ -77,7 +81,8 @@ TOOLS = {
 def run_tool(name, args):
     if name not in TOOLS:
         return f"unknown tool: {name}", True
-    argv = [GRIM] + TOOLS[name][2](args) + ["--json", "--author", "claude"]
+    argv = [GRIM] + TOOLS[name][2](args) + ["--json"]
+    if "--author" not in argv: argv += ["--author", "claude"]
     try:
         p = subprocess.run(argv, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as e:

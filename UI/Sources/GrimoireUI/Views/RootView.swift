@@ -14,6 +14,7 @@ struct RootView: View {
         ZStack {
             if compact { compactLayout } else { regularLayout }
             if store.settingsVisible { SyncSettingsView(store: store).transition(.opacity) }
+            if store.issuesVisible { SyncIssuesView(store: store).transition(.opacity) }
             if store.paletteVisible { PaletteView(store: store).transition(.opacity) }
             if let toast = store.toast {
                 VStack { Spacer(); Text(toast).font(.system(size: 13)).padding(.horizontal, 14).padding(.vertical, 9)
