@@ -4,6 +4,9 @@ import GrimoireCore
 import SwiftUI
 @testable import GrimoireUI
 
+/// Tests that inject keystrokes into a hidden window need a real GUI session; hosted CI runners don't have one, so those suites skip there (they run locally).
+let hasGUISession = ProcessInfo.processInfo.environment["CI"] == nil
+
 /// The whole window (sidebar, panes, editors) hosted in a window that is never shown, driven by injected events.
 @MainActor
 final class HeadlessApp {
@@ -32,6 +35,15 @@ final class HeadlessApp {
     func settle(_ seconds: Double = 0.5) async {
         let end = Date().addingTimeInterval(seconds)
         while Date() < end {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            host.layoutSubtreeIfNeeded()
+        }
+    }
+
+    /// Like `settle`, but returns as soon as `condition` holds (up to `timeout`), so slower machines don't depend on fixed sleeps.
+    func settle(until condition: () -> Bool, timeout: Double = 10) async {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < end {
             try? await Task.sleep(nanoseconds: 20_000_000)
             host.layoutSubtreeIfNeeded()
         }

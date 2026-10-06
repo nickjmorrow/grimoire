@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: ${{ matrix.package }} tests
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [Core, CLI, UI]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ matrix.package }}/.build
+          key: spm-${{ matrix.package }}-${{ runner.os }}-${{ hashFiles(format('{0}/Package.swift', matrix.package), format('{0}/Package.resolved', matrix.package)) }}
+          restore-keys: spm-${{ matrix.package }}-${{ runner.os }}-
+      - run: swift --version
+      - run: swift test --package-path ${{ matrix.package }}
+
+  mcp:
+    name: MCP server tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: CLI/.build
+          key: spm-mcp-${{ runner.os }}-${{ hashFiles('CLI/Package.swift', 'CLI/Package.resolved') }}
+          restore-keys: spm-mcp-${{ runner.os }}-
+      - name: Build grim (the MCP server wraps it)
+        run: swift build -c release --product grim --package-path CLI
+      - name: Run MCP tests
+        working-directory: mcp
+        env:
+          GRIM_BIN: ${{ github.workspace }}/CLI/.build/release/grim
+        run: python3 -m unittest -v test_grim_mcp
+
+  app:
+    name: Build apps (macOS + iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: scripts/generate-project.sh --quiet
+      - name: Build Mac app
+        working-directory: App
+        run: |
+          xcodebuild -project Grimoire.xcodeproj -scheme Grimoire -configuration Debug \
+            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Build iOS app (simulator)
+        working-directory: App
+        run: |
+          xcodebuild -project Grimoire.xcodeproj -scheme GrimoireiOS -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build

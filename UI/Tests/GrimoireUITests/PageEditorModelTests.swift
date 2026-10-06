@@ -9,6 +9,12 @@ private func row(_ id: String?, _ depth: Int, _ text: String) -> OutlineRow { Ou
 /// Lets main-queue work (saves, callbacks) run while the test waits.
 private func pumpMain(_ seconds: TimeInterval) async { try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000)) }
 
+/// Runs the main actor until `condition` holds or `timeout` passes, so slower machines (CI) don't depend on fixed sleeps.
+private func pumpMain(until condition: () -> Bool, timeout: TimeInterval = 10) async {
+    let end = Date().addingTimeInterval(timeout)
+    while !condition() && Date() < end { try? await Task.sleep(nanoseconds: 20_000_000) }
+}
+
 @Suite @MainActor struct PageEditorModelTests {
     func setup() throws -> (Graph, PageEditorModel, Box) {
         let g = try tempGraph()
@@ -78,7 +84,8 @@ private func pumpMain(_ seconds: TimeInterval) async { try? await Task.sleep(nan
         try g.perform([.editText(blockID: "a", text: "outside")], author: .claude)
         m.externalChangeDetected()
         #expect(received.isEmpty)                                   // dirty: don't clobber
-        await pumpMain(0.4); m.waitUntilIdle(); await pumpMain(0.2)
+        await pumpMain(0.4); m.waitUntilIdle()
+        await pumpMain(until: { received.last != nil })
         #expect(try g.tree(pageID: "p").map(\.block.text) == ["outside", "typing…"])   // both survive in the database
         #expect(received.last?.rows.map(\.text) == ["outside", "typing…"])
     }
