@@ -60,8 +60,9 @@ public final class PageEditorModel {
         guard let read = currentDoc else { completion?(); return }
         let generation = editGeneration
         var newIDCounter = 0
-        let normalized = read().normalized { newIDCounter += 1; return UUID().uuidString.lowercased() }
-        if newIDCounter > 0 || normalized.rows.map(\.blockID) != read().rows.map(\.blockID) { onNormalized?(normalized) }
+        let current = read()
+        let normalized = current.normalized { newIDCounter += 1; return UUID().uuidString.lowercased() }
+        if newIDCounter > 0 || normalized.rows.map(\.blockID) != current.rows.map(\.blockID) { onNormalized?(normalized) }
         let pageID = self.pageID, graph = self.graph
         queue.async { [self] in
             // A page the user hasn't typed into yet is shown with one empty placeholder row: that is not a change.

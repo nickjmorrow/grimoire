@@ -147,6 +147,16 @@ enum Schema {
             );
             """)
         }
+        // blocks_tree starts with page_id, so child lookups, subtree walks and ON DELETE CASCADE on parent_id scanned all blocks;
+        // the same goes for the tag and page cascades and for reading the op log by time.
+        m.registerMigration("v6") { db in
+            try db.execute(sql: """
+            CREATE INDEX blocks_parent ON blocks(parent_id);
+            CREATE INDEX block_tags_tag ON block_tags(tag_id);
+            CREATE INDEX tags_page ON tags(page_id);
+            CREATE INDEX ops_created ON ops(created_at);
+            """)
+        }
         return m
     }
 }

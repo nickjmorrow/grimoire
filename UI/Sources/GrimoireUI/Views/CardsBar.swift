@@ -7,10 +7,16 @@ struct CardsBar: View {
     let pageID: String
     @State private var showGroups = false
     @State private var groups: [CardGroup] = []
+    /// Read when the page or the data changes, not on every redraw.
+    @State private var counts = CardCounts(due: 0, new: 0, total: 0)
 
     var body: some View {
-        let _ = store.revision
-        let counts = (try? store.graph.cardCounts(scope: .page(pageID))) ?? CardCounts(due: 0, new: 0, total: 0)
+        content.task(id: "\(pageID)-\(store.revision)") {
+            counts = (try? store.graph.cardCounts(scope: .page(pageID))) ?? CardCounts(due: 0, new: 0, total: 0)
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         if counts.total > 0 {
             VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
