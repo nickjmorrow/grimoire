@@ -37,6 +37,15 @@ final class HeadlessApp {
         }
     }
 
+    /// Like `settle`, but returns as soon as `condition` holds (up to `timeout`), so slower machines don't depend on fixed sleeps.
+    func settle(until condition: () -> Bool, timeout: Double = 10) async {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < end {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            host.layoutSubtreeIfNeeded()
+        }
+    }
+
     func textViews() -> [OutlineTextView] {
         var out: [OutlineTextView] = []
         func walk(_ v: NSView) { if let t = v as? OutlineTextView { out.append(t) }; v.subviews.forEach(walk) }

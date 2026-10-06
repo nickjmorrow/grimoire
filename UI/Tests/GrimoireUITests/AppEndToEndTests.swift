@@ -111,7 +111,7 @@ private func freshGraph() throws -> Graph { try Graph(folder: FileManager.defaul
         await app.settle(0.4)
         app.snapshot("e2e-palette")
         app.key("return")
-        await app.settle(0.4)
+        await app.settle(until: { !app.store.paletteVisible })
         #expect(!app.store.paletteVisible)
         #expect(app.store.focusedPane.location == .page(Graph.pageID(forTitle: "Focaccia")))
     }
