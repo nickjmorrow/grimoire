@@ -24,10 +24,12 @@ public struct PaletteItem: Identifiable {
         if query.hasPrefix(">") { commandsOnly = true; query = String(query.dropFirst()).trimmingCharacters(in: .whitespaces) }
 
         var scored: [(Int, PaletteItem)] = []
+        var createRow: PaletteItem?
 
         // commands and themes
         if mode == .all || commandsOnly {
             for c in CommandRegistry.all where c.isEnabled(store) {
+                if store.compact, Self.macOnlyCommands.contains(c.id) { continue }
                 guard let s = bestScore(query, [c.title] + c.keywords) else { continue }
                 scored.append((s, PaletteItem(id: "cmd:" + c.id, kind: .command, title: c.title, subtitle: nil, symbol: c.symbol, shortcut: c.shortcut?.display) { s, _ in c.run(s) }))
             }
@@ -53,8 +55,10 @@ public struct PaletteItem: Identifiable {
                 }
                 if !pages.contains(where: { $0.title.caseInsensitiveCompare(query) == .orderedSame }) {
                     let t = query
-                    scored.append((10, PaletteItem(id: "create:" + t, kind: .create, title: "Create page “\(t)”", subtitle: nil, symbol: "plus.circle") { s, newPane in
-                        if let id = s.pageID(forTitle: t, create: true) { s.open(.page(id), newPane: newPane) } }))
+                    let create = PaletteItem(id: "create:" + t, kind: .create, title: "Create page “\(t)”", subtitle: nil, symbol: "plus.circle") { s, newPane in
+                        if let id = s.pageID(forTitle: t, create: true) { s.open(.page(id), newPane: newPane) } }
+                    // On the phone a stray Return should open the best match, not make a page; "Create page" then follows the matching blocks.
+                    if store.compact && query.count >= 2 { createRow = create } else { scored.append((10, create)) }
                 }
             }
         }
@@ -74,12 +78,17 @@ public struct PaletteItem: Identifiable {
                 if blocks.count >= 10 { break }
             }
             if mode == .search { out = blocks + out } else { out += blocks }
+            if let createRow { out.append(createRow) }
             let q = query
             out.append(PaletteItem(id: "search:" + q, kind: .search, title: "Search everything for “\(q)”", subtitle: nil, symbol: "text.magnifyingglass") { s, newPane in
                 s.open(.search(q), newPane: newPane) })
         }
+        if let createRow, !out.contains(where: { $0.id == createRow.id }) { out.append(createRow) }
         return Array(out.prefix(limit))
     }
+
+    /// Commands with no meaning on the one-pane iPhone layout (they open the palette itself, or manage panes).
+    private static let macOnlyCommands: Set<String> = ["palette", "commands", "search", "split", "close-pane", "focus-1", "focus-2", "focus-3"]
 
     private static func pageItem(_ p: Page, store: GraphStore) -> PaletteItem {
         let id = p.id

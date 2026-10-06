@@ -54,7 +54,7 @@ struct PaneView: View {
             }
             if store.panes.count > 1, !store.compact { IconButton(symbol: "xmark", store: store) { store.closePane(pane.id) } }
         }
-        .padding(.horizontal, 8).frame(height: 38)
+        .padding(.horizontal, store.compact ? 4 : 8).frame(height: store.compact ? 44 : 38)
         .background(store.color(\.surface).opacity(0.55))
     }
 
