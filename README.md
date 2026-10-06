@@ -9,6 +9,10 @@ A local-first, outliner-style knowledge app for macOS and iOS: daily journals, l
 
 It's a personal, single-user project, built as a native replacement for Logseq. The full design is in [docs/superpowers/specs](docs/superpowers/specs/2026-10-05-grimoire-design.md).
 
+![Grimoire on macOS: a daily journal beside a page with linked references](docs/screenshots/app.png)
+
+*Midnight Sun theme, with sample notes. Regenerate with `GRIMOIRE_SCREENSHOT=1 swift test --package-path UI --filter ScreenshotTests`.*
+
 ## Goals
 
 - **Native and fast.** SwiftUI shell, AppKit/UIKit text editing, SQLite underneath; fully usable offline.
