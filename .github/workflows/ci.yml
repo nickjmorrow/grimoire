@@ -29,14 +29,21 @@ jobs:
 
   mcp:
     name: MCP server tests
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/cache@v4
         with:
-          python-version: "3.12"
-      - run: python -m unittest -v test_grim_mcp
+          path: CLI/.build
+          key: spm-mcp-${{ runner.os }}-${{ hashFiles('CLI/Package.swift', 'CLI/Package.resolved') }}
+          restore-keys: spm-mcp-${{ runner.os }}-
+      - name: Build grim (the MCP server wraps it)
+        run: swift build -c release --product grim --package-path CLI
+      - name: Run MCP tests
         working-directory: mcp
+        env:
+          GRIM_BIN: ${{ github.workspace }}/CLI/.build/release/grim
+        run: python3 -m unittest -v test_grim_mcp
 
   app:
     name: Build apps (macOS + iOS)
