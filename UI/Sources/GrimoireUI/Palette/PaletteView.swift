@@ -18,6 +18,9 @@ struct PaletteView: View {
                     Image(systemName: store.paletteMode == .search ? "text.magnifyingglass" : store.paletteMode == .commands ? "command" : "magnifyingglass").foregroundStyle(store.color(\.textFaint))
                     TextField(placeholder, text: $query)
                         .textFieldStyle(.plain).font(.system(size: 16)).foregroundStyle(store.color(\.text))
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled().submitLabel(.go)
+                        #endif
                         .focused($focused)
                         .onSubmit { run(newPane: false) }
                         .accessibilityIdentifier("palette-field")
@@ -35,7 +38,7 @@ struct PaletteView: View {
                             if items.isEmpty { Text("No matches").foregroundStyle(store.color(\.textDim)).padding(20) }
                         }.padding(6)
                     }
-                    .frame(height: min(380, CGFloat(max(items.count, 1)) * 34 + 12))
+                    .frame(height: min(store.compact ? 396 : 380, CGFloat(max(items.count, 1)) * 34 + 12))
                     .onChange(of: selection) { _, new in if items.indices.contains(new) { proxy.scrollTo(items[new].id) } }
                 }
             }
@@ -44,7 +47,7 @@ struct PaletteView: View {
             .background(RoundedRectangle(cornerRadius: 12).fill(store.color(\.surfaceRaised)))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(store.color(\.border), lineWidth: 1))
             .shadow(color: .black.opacity(0.4), radius: 24, y: 10)
-            .padding(.top, 90)
+            .padding(.top, store.compact ? 8 : 90)
         }
         .onAppear { query = ""; refresh(); focused = true }
         .onChange(of: query) { _, _ in selection = 0; refresh() }
@@ -62,7 +65,7 @@ struct PaletteView: View {
         switch store.paletteMode {
         case .search: return "Search everything…"
         case .commands: return "Run a command…"
-        case .all: return "Go to a page, search, or run a command…  (> for commands)"
+        case .all: return store.compact ? "Search or run a command…" : "Go to a page, search, or run a command…  (> for commands)"
         }
     }
 
@@ -82,7 +85,7 @@ struct PaletteView: View {
             Text(item.title).lineLimit(1).font(.system(size: 14)).foregroundStyle(store.color(\.text))
             if let s = item.subtitle { Text(s).font(.system(size: 12)).foregroundStyle(store.color(\.textFaint)).lineLimit(1) }
             Spacer(minLength: 8)
-            if let k = item.shortcut { Text(k).font(.system(size: 12, design: .rounded)).foregroundStyle(store.color(\.textDim)) }
+            if !store.compact, let k = item.shortcut { Text(k).font(.system(size: 12, design: .rounded)).foregroundStyle(store.color(\.textDim)) }
         }
         .padding(.horizontal, 10).frame(height: 32)
         .background(RoundedRectangle(cornerRadius: 7).fill(selected ? store.color(\.selection) : .clear))

@@ -21,6 +21,14 @@ struct IconButton: View {
     var enabled = true
     let action: () -> Void
     @State private var hover = false
+    /// The tappable square: a fingertip needs more than the 24 pt glyph circle.
+    private static var touch: CGFloat {
+        #if os(iOS)
+        40
+        #else
+        24
+        #endif
+    }
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -28,6 +36,8 @@ struct IconButton: View {
                 .frame(width: 24, height: 24)
                 .foregroundStyle(enabled ? store.color(\.textDim) : store.color(\.textFaint).opacity(0.5))
                 .background(Circle().fill(hover && enabled ? store.color(\.surfaceRaised) : .clear))
+                .frame(width: Self.touch, height: Self.touch)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

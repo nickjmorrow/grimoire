@@ -173,12 +173,13 @@ public final class GraphStore {
             })
     }
 
+    private static let blockRefPattern = try! NSRegularExpression(pattern: #"\(\(([0-9a-fA-F-]{36})\)\)"#)
+
     /// Replaces `((block-id))` references with the text of the block they point to (for read-only display; the editor keeps the raw reference).
     public func expandBlockRefs(_ text: String) -> String {
         guard text.contains("((") else { return text }
         var out = text
-        let pattern = try! NSRegularExpression(pattern: #"\(\(([0-9a-fA-F-]{36})\)\)"#)
-        for m in pattern.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+        for m in Self.blockRefPattern.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
             guard let idRange = Range(m.range(at: 1), in: text), let whole = Range(m.range, in: out) else { continue }
             let id = String(text[idRange]).lowercased()
             var snippet = (try? graph.db.read { try String.fetchOne($0, sql: "SELECT text FROM blocks WHERE id = ?", arguments: [id]) }) ?? nil
@@ -220,7 +221,7 @@ public final class GraphStore {
 
     /// Pages you opened, newest first; if fewer than the limit, the rest are the most recently edited pages.
     func refreshRecents() {
-        var out: [Page] = visited.compactMap { page(id: $0) }.prefix(Self.recentLimit).map { $0 }
+        var out: [Page] = visited.lazy.compactMap { self.page(id: $0) }.prefix(Self.recentLimit).map { $0 }
         if out.count < Self.recentLimit {
             let have = Set(out.map(\.id))
             out += ((try? graph.recentPages(limit: Self.recentLimit)) ?? []).filter { !have.contains($0.id) }.prefix(Self.recentLimit - out.count)

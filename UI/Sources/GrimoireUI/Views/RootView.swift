@@ -71,6 +71,12 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: store.sidebarVisible)
+        #if os(iOS)
+        .onChange(of: store.sidebarVisible) { _, visible in
+            // The editor's keyboard and toolbar would otherwise stay up over the lower half of the sidebar.
+            if visible { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
+        }
+        #endif
     }
 }
 

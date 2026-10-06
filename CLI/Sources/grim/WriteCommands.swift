@@ -123,6 +123,20 @@ struct CreatePage: ParsableCommand {
     }
 }
 
+struct DeletePage: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "delete-page", abstract: "Delete a page and all its blocks (undoable). Links to it stay as plain text links.")
+    @OptionGroup var g: GlobalOptions
+    @Argument var title: String
+    func run() throws {
+        try guarded {
+            let graph = try g.open()
+            guard let page = try graph.page(titled: title) else { throw GraphError.pageNotFound(title) }
+            try graph.perform([.deletePage(id: page.id)], author: try g.actor())
+            print("deleted \(page.title)")
+        }
+    }
+}
+
 struct RenamePage: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "rename-page", abstract: "Rename a page and rewrite every link and tag that points to it.")
     @OptionGroup var g: GlobalOptions

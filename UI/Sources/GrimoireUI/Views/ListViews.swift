@@ -13,6 +13,9 @@ struct AllPagesView: View {
         VStack(spacing: 0) {
             HStack {
                 TextField("Filter pages", text: $filter).textFieldStyle(.plain)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    #endif
                     .padding(8).background(RoundedRectangle(cornerRadius: 8).fill(store.color(\.surface)))
                 Picker("", selection: $sortByTitle) { Text("Recent").tag(false); Text("A–Z").tag(true) }
                     .pickerStyle(.segmented).frame(width: 130).labelsHidden()
@@ -76,10 +79,18 @@ struct SearchResultsView: View {
     let paneID: UUID
     @State private var hits: [SearchHit] = []
 
+    private static var emptyHint: String {
+        #if os(iOS)
+        "Tap the magnifier to search."
+        #else
+        "Type in the command palette (⌘K) to search."
+        #endif
+    }
+
     var body: some View {
         List {
             if hits.isEmpty {
-                Text(query.isEmpty ? "Type in the command palette (⌘K) to search." : "No results.").foregroundStyle(store.color(\.textDim))
+                Text(query.isEmpty ? Self.emptyHint : "No results.").foregroundStyle(store.color(\.textDim))
                     .listRowBackground(Color.clear)
             }
             ForEach(Array(hits.enumerated()), id: \.offset) { _, h in

@@ -37,8 +37,9 @@ struct ReviewView: View {
                 if m.canUndo { Button("Undo") { m.undo() }.buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(store.color(\.link)) }
             }
             .padding(.horizontal, 24).padding(.top, 14)
-            Spacer(minLength: 12)
             if let card = m.current {
+                // Top-anchored and scrollable: the question stays put when the answer appears, and a long answer can be read on a phone.
+                ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(card.pageTitle).font(.system(size: 11, weight: .semibold)).tracking(0.8).textCase(.uppercase).foregroundStyle(store.color(\.textFaint))
                     RenderedBlockText(text: card.front, store: store).font(.system(size: 22, weight: .semibold))
@@ -53,19 +54,34 @@ struct ReviewView: View {
                         }
                     }
                 }
-                .frame(maxWidth: 680, alignment: .leading).padding(.horizontal, 32)
+                .frame(maxWidth: 680, alignment: .leading).padding(.horizontal, 32).padding(.top, 40).padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
+                }
+                .calmScroll()
             } else {
+                Spacer(minLength: 12)
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle").font(.system(size: 34)).foregroundStyle(store.color(\.success))
                     Text(m.answered > 0 ? "Done for now — \(m.answered) reviewed" : "Nothing due").font(.system(size: 16, weight: .medium)).foregroundStyle(store.color(\.text))
                 }
+                Spacer(minLength: 12)
             }
-            Spacer(minLength: 12)
-            if m.current != nil { controls(m).padding(.bottom, 26) }
+            if m.current != nil {
+                controls(m)
+                #if os(macOS)
+                Text("space show answer, then Good  ·  1 Again  2 Hard  3 Good  4 Easy  ·  u undo  ·  esc leave")
+                    .font(.system(size: 11)).foregroundStyle(store.color(\.textFaint)).padding(.top, 10).padding(.bottom, 20)
+                #else
+                Color.clear.frame(height: 20)
+                #endif
+            }
         }
+        .sensoryFeedback(.impact(weight: .light), trigger: m.revealed)
+        .sensoryFeedback(.selection, trigger: m.answered)
         .focusable().focused($focused).focusEffectDisabled()
-        .onKeyPress(.space) { m.reveal(); return .handled }
-        .onKeyPress(.return) { m.reveal(); return .handled }
+        .onKeyPress(.space) { advance(m); return .handled }
+        .onKeyPress(.return) { advance(m); return .handled }
+        .onKeyPress(.escape) { leave(); return .handled }
         .onKeyPress(characters: CharacterSet(charactersIn: "1234")) { press in
             if let n = Int(press.characters), let r = Rating(rawValue: n) { m.rate(r); return .handled }
             return .ignored
@@ -73,6 +89,12 @@ struct ReviewView: View {
         .onKeyPress("u") { m.undo(); return .handled }
         .background(store.color(\.background))
     }
+
+    /// Space or return: show the answer, then (once it's showing) rate the card Good.
+    private func advance(_ m: ReviewModel) { if m.revealed { m.rate(.good) } else { m.reveal() } }
+
+    /// Esc: back to where the review was started from.
+    private func leave() { if store.focusedPane.canGoBack { store.back() } else { store.open(.journals) } }
 
     @ViewBuilder private func controls(_ m: ReviewModel) -> some View {
         if m.revealed {
@@ -82,13 +104,14 @@ struct ReviewView: View {
                         VStack(spacing: 2) {
                             Text(name(r)).font(.system(size: 13, weight: .semibold))
                             Text(m.intervalLabels[r] ?? "").font(.system(size: 11)).foregroundStyle(store.color(\.textFaint))
-                        }.frame(width: 84, height: 44)
+                        }.frame(maxWidth: 96, minHeight: 44)
                     }
                     .buttonStyle(.plain)
                     .background(RoundedRectangle(cornerRadius: 8).fill(store.color(\.surfaceRaised)))
                     .foregroundStyle(store.color(r == .again ? \.danger : r == .easy ? \.success : \.text))
                 }
             }
+            .padding(.horizontal, 16)
         } else {
             Button("Show answer") { m.reveal() }.buttonStyle(.plain)
                 .padding(.horizontal, 22).frame(height: 38)

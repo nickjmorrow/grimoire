@@ -17,8 +17,15 @@ struct PageView: View {
                             .font(Font(store.theme.titleFont())).foregroundStyle(store.color(\.text))
                             .padding(.horizontal, CGFloat(store.theme.spacing.pagePadding) + 4).padding(.top, 26).padding(.bottom, 6)
                     } else {
-                        TextField("Untitled", text: $draftTitle)
+                        TextField("Untitled", text: $draftTitle, axis: .vertical)
+                            .lineLimit(1...4)
                             .textFieldStyle(.plain).focused($titleFocused)
+                            .onChange(of: draftTitle) { _, v in
+                                // A vertical-axis field takes Return as a newline; titles are one line, so Return commits instead.
+                                guard v.contains("\n") else { return }
+                                draftTitle = v.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+                                commitTitle(page); titleFocused = false
+                            }
                             .font(Font(store.theme.titleFont())).foregroundStyle(store.color(\.text))
                             .padding(.horizontal, CGFloat(store.theme.spacing.pagePadding) + 4).padding(.top, 26).padding(.bottom, 6)
                             .onSubmit { commitTitle(page) }

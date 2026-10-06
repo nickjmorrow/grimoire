@@ -84,19 +84,34 @@ struct SidebarRow: View {
     var active: Bool
     let action: () -> Void
     @State private var hover = false
+    /// On iPhone the sidebar is a touch list: bigger type and ~44 pt rows. The Mac keeps its compact rows.
+    private static var touchScale: CGFloat {
+        #if os(iOS)
+        1.2
+        #else
+        1
+        #endif
+    }
+    private static var verticalPadding: CGFloat {
+        #if os(iOS)
+        11
+        #else
+        5
+        #endif
+    }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let symbol {
-                    Image(systemName: symbol).font(.system(size: 11.5)).frame(width: 16)
+                    Image(systemName: symbol).font(.system(size: Self.touchScale * 11.5)).frame(width: Self.touchScale * 16)
                         .foregroundStyle(active ? store.color(\.accent) : store.color(\.textFaint))
                 }
-                Text(title).font(.system(size: 13)).lineLimit(1)
+                Text(title).font(.system(size: Self.touchScale * 13)).lineLimit(1)
                     .foregroundStyle(active ? store.color(\.text) : store.color(\.textDim))
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10).padding(.vertical, 5)
+            .padding(.horizontal, 10).padding(.vertical, Self.verticalPadding)
             .background(RoundedRectangle(cornerRadius: 6).fill(active ? store.color(\.surfaceRaised) : (hover ? store.color(\.surfaceRaised).opacity(0.5) : .clear)))
             .contentShape(Rectangle())
         }

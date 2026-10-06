@@ -45,10 +45,10 @@ public enum CommandRegistry {
         AppCommand(id: "all-pages", title: "All Pages", keywords: ["list"], symbol: "doc.text", menu: "Go") { $0.open(.allPages) },
         AppCommand(id: "tags", title: "Tags", keywords: ["list"], symbol: "number", menu: "Go") { $0.open(.tags) },
         AppCommand(id: "review", title: "Review Flashcards", keywords: ["cards", "study", "quiz", "srs"], shortcut: Shortcut("r", shift: true), symbol: "rectangle.stack", menu: "Go") { $0.open(.review(page: nil, block: nil)) },
-        AppCommand(id: "review-page", title: "Review Cards on This Page", keywords: ["cards", "study"], symbol: "rectangle.stack",
+        AppCommand(id: "review-page", title: "Review Cards on This Page", keywords: ["cards", "study"], shortcut: Shortcut("r", option: true), symbol: "rectangle.stack", menu: "Go",
                    isEnabled: { if case .page = $0.focusedPane.location { return true } else { return false } }) {
             if case .page(let id) = $0.focusedPane.location { $0.open(.review(page: id, block: nil)) } },
-        AppCommand(id: "review-bullet", title: "Review Cards Under This Bullet", keywords: ["cards", "study", "chapter", "section"], symbol: "rectangle.stack",
+        AppCommand(id: "review-bullet", title: "Review Cards Under This Bullet", keywords: ["cards", "study", "chapter", "section"], shortcut: Shortcut("r"), symbol: "rectangle.stack", menu: "Go",
                    isEnabled: { $0.caretReviewCandidate != nil }) { $0.reviewCardsAtCaret() },
         AppCommand(id: "new-page", title: "New Page", keywords: ["create"], shortcut: Shortcut("n"), symbol: "plus", menu: "File") { $0.newPage() },
         AppCommand(id: "toggle-favorite", title: "Toggle Favorite", keywords: ["star", "pin"], shortcut: Shortcut("d"), symbol: "star", menu: "File",

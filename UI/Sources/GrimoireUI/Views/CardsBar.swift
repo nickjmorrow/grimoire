@@ -7,11 +7,18 @@ struct CardsBar: View {
     let pageID: String
     @State private var showGroups = false
     @State private var groups: [CardGroup] = []
+    /// Read when the page or the data changes, not on every redraw.
+    @State private var counts = CardCounts(due: 0, new: 0, total: 0)
 
     var body: some View {
-        let _ = store.revision
-        let counts = (try? store.graph.cardCounts(scope: .page(pageID))) ?? CardCounts(due: 0, new: 0, total: 0)
+        content.task(id: "\(pageID)-\(store.revision)") {
+            counts = (try? store.graph.cardCounts(scope: .page(pageID))) ?? CardCounts(due: 0, new: 0, total: 0)
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         if counts.total > 0 {
+            VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Button {
                     groups = (try? store.graph.cardGroups(pageID: pageID)) ?? []
@@ -27,8 +34,9 @@ struct CardsBar: View {
                 }
                 .buttonStyle(.plain)
                 .help("Review this page's flashcards")
-                .popover(isPresented: $showGroups, arrowEdge: .bottom) { picker(counts) }
                 Spacer()
+            }
+            if showGroups { picker(counts) }
             }
             .padding(.horizontal, CGFloat(store.theme.spacing.pagePadding) + 4).padding(.bottom, 8)
         }
@@ -44,12 +52,14 @@ struct CardsBar: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 2) {
                 row("Whole page", all, depth: 0, bold: true) { review(nil) }
-                Divider().padding(.vertical, 4)
+                Divider().overlay(store.color(\.border)).padding(.vertical, 4)
                 ForEach(groups) { g in row(Self.cleaned(g.title), g.counts, depth: g.depth, bold: false) { review(g.blockID) } }
             }
             .padding(8)
         }
-        .frame(width: 360).frame(maxHeight: 420)
+        .frame(maxWidth: 420, maxHeight: 360)
+        .background(RoundedRectangle(cornerRadius: 8).fill(store.color(\.surfaceRaised)))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(store.color(\.border)))
     }
 
     private func row(_ title: String, _ c: CardCounts, depth: Int, bold: Bool, action: @escaping () -> Void) -> some View {
