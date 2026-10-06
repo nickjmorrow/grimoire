@@ -80,6 +80,6 @@ struct Grim: ParsableCommand {
             Today.self, PageCmd.self, Journal.self, Search.self, Backlinks.self, Recent.self, Favorites.self,
             TagCmd.self, Prop.self, Query.self, Changes.self,
             Append.self, Insert.self, Edit.self, Move.self, Delete.self, CreatePage.self, DeletePage.self, RenamePage.self,
-            Favorite.self, Undo.self, Attach.self, Reindex.self, Mirror.self, Export.self, ImportLogseq.self, Cards.self, SyncCmd.self, SyncSetup.self, SyncStatusCmd.self,
+            Favorite.self, Undo.self, Attach.self, Reindex.self, Mirror.self, Export.self, ImportLogseq.self, Backup.self, Cards.self, SyncCmd.self, SyncSetup.self, SyncStatusCmd.self,
         ])
 }

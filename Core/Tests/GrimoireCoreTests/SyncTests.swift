@@ -291,6 +291,27 @@ struct SplitMix: RandomNumberGenerator {
         #expect(try cb.pendingCount() == 0)
     }
 
+    @Test func anUnsentOpThisBuildCannotReadIsReportedNotSilentlyDropped() async throws {
+        let rig = try Rig()
+        let (a, ca) = try rig.device("A"), (b, cb) = try rig.device("B")
+        try a.perform([.createPage(id: "p", title: "P", kind: .page, journalDate: nil)], author: .me)
+        try await ca.sync(using: rig.transport); try await cb.sync(using: rig.transport)
+        try await b.db.write { try $0.execute(sql: "INSERT INTO ops (device, author, kind, payload, created_at) VALUES ('B', 'me', 'future', '{\"somethingNew\":1}', 1)") }
+        try a.perform([.insertBlock(id: "y", pageID: "p", parentID: nil, orderKey: "a", text: "from A")], author: .me)
+        try await ca.sync(using: rig.transport)
+        try await cb.sync(using: rig.transport); try await cb.sync(using: rig.transport)
+        #expect(try await b.db.read { try String.fetchOne($0, sql: "SELECT text FROM blocks WHERE id = 'y'") } == "from A")   // sync carries on
+        let issues = try cb.issues()
+        #expect(issues.count == 1 && issues[0].reason.contains("unreadable"))  // once, not on every sync
+        #expect(try cb.pendingCount() == 0)
+    }
+
+    @Test func retryDelayDoublesFromHalfAMinuteAndCapsAtTenMinutes() {
+        let d = (0...12).map { SyncClient.retryDelay(afterFailures: $0) }
+        #expect(d[0] == 0 && d[1] == 30 && d[2] == 60 && d[3] == 120)
+        #expect(d[6] == 600 && d[12] == 600)
+    }
+
     @Test func aReinstalledDeviceWithTheSameNameDoesNotLoseItsFirstOps() async throws {
         let rig = try Rig()
         let (a1, c1) = try rig.device("phone")

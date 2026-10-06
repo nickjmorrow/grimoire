@@ -219,6 +219,72 @@ private func freshGraph() throws -> Graph { try Graph(folder: FileManager.defaul
 #endif
 
 #if os(macOS)
+private final class FlakyTransport: SyncTransport, @unchecked Sendable {
+    let inner: SyncTransport
+    private let lock = NSLock()
+    private var _down = true, _pulls = 0
+    var down: Bool { get { lock.withLock { _down } } set { lock.withLock { _down = newValue } } }
+    var pulls: Int { lock.withLock { _pulls } }
+    init(_ inner: SyncTransport) { self.inner = inner }
+    func pull(since: Int64) async throws -> [RemoteOp] {
+        lock.withLock { _pulls += 1 }
+        if down { throw URLError(.notConnectedToInternet) }
+        return try await inner.pull(since: since)
+    }
+    func push(base: Int64, device: String, ops: [OutgoingOp]) async throws -> PushResult { try await inner.push(base: base, device: device, ops: ops) }
+    func putAsset(hash: String, data: Data) async throws { try await inner.putAsset(hash: hash, data: data) }
+    func getAsset(hash: String) async throws -> Data? { try await inner.getAsset(hash: hash) }
+}
+
+@Suite(.serialized) @MainActor struct SyncResilienceTests {
+    @Test func aFailingHubIsNotRetriedByTheTimerUntilTheBackoffPassesButSyncNowStillTries() async throws {
+        let hub = SyncHub(graph: try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("hub-\(UUID().uuidString)"), device: "hub"))
+        let flaky = FlakyTransport(LocalTransport(hub: hub))
+        let store = GraphStore(graph: try freshGraph(), defaults: UserDefaults(suiteName: "sync-\(UUID().uuidString)")!)
+        store.start()
+        store.startSync(transport: flaky, deviceID: "mac", interval: 3600)
+        for _ in 0..<40 { if case .offline = store.syncStatus { break }; try await Task.sleep(nanoseconds: 50_000_000) }
+        guard case .offline = store.syncStatus else { Issue.record("status \(store.syncStatus)"); return }
+        let tried = flaky.pulls
+        store.syncNow(manual: false); try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(flaky.pulls == tried, "a timer-driven sync inside the backoff window must not hit the hub")
+        store.syncNow(); try await Task.sleep(nanoseconds: 300_000_000)
+        #expect(flaky.pulls == tried + 1, "a manual sync always tries")
+        flaky.down = false
+        store.syncNow()
+        for _ in 0..<40 { if case .synced = store.syncStatus { break }; try await Task.sleep(nanoseconds: 50_000_000) }
+        guard case .synced = store.syncStatus else { Issue.record("status \(store.syncStatus)"); return }
+        store.stop()
+    }
+
+    @Test func rejectedChangesAppearInSyncIssuesAndClearing() async throws {
+        let hub = SyncHub(graph: try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("hub-\(UUID().uuidString)"), device: "hub"))
+        let transport = LocalTransport(hub: hub)
+        // another device deletes a block that this one then edits
+        let other = try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("o-\(UUID().uuidString)"), device: "other")
+        try other.perform([.createPage(id: "p", title: "P", kind: .page, journalDate: nil), .insertBlock(id: "x", pageID: "p", parentID: nil, orderKey: "a", text: "base")], author: .me)
+        let oc = SyncClient(graph: other)
+        try await oc.sync(using: transport)
+        let g = try freshGraph()
+        let store = GraphStore(graph: g, defaults: UserDefaults(suiteName: "sync-\(UUID().uuidString)")!)
+        store.start()
+        store.startSync(transport: transport, deviceID: "mac", interval: 3600)
+        for _ in 0..<40 { if store.allSynced { break }; try await Task.sleep(nanoseconds: 50_000_000) }
+        try other.perform([.deleteBlock(blockID: "x")], author: .me); try await oc.sync(using: transport)
+        try g.perform([.editText(blockID: "x", text: "doomed edit")], author: .me)
+        store.syncNow()
+        for _ in 0..<60 { if !store.syncIssues.isEmpty { break }; try await Task.sleep(nanoseconds: 50_000_000) }
+        #expect(store.syncIssues.count == 1)
+        store.showSyncIssues()
+        #expect(store.issuesVisible && store.syncIssues[0].payload.contains("doomed edit"))
+        store.clearSyncIssues()
+        #expect(store.syncIssues.isEmpty && !store.issuesVisible)
+        store.stop()
+    }
+}
+#endif
+
+#if os(macOS)
 @Suite(.serialized) @MainActor struct ViewCostTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["GRIMOIRE_REAL_GRAPH"] != nil)) func journalsOnTheRealGraphStayCheap() async throws {
         let src = URL(fileURLWithPath: ProcessInfo.processInfo.environment["GRIMOIRE_REAL_GRAPH"]!)

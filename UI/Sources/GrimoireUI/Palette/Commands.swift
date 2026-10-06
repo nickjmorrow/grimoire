@@ -63,6 +63,7 @@ public enum CommandRegistry {
         AppCommand(id: "undo-claude", title: "Undo Claude's Last Change", keywords: ["revert", "ai"], symbol: "arrow.uturn.backward") { $0.undoClaudesLastChange() },
         AppCommand(id: "sync-settings", title: "Sync Settings", keywords: ["hub", "token", "server", "settings", "preferences"], shortcut: Shortcut(","), symbol: "arrow.triangle.2.circlepath") { $0.settingsVisible = true },
         AppCommand(id: "sync-now", title: "Sync Now", keywords: ["push", "pull"], symbol: "arrow.triangle.2.circlepath", isEnabled: { $0.syncStatus != .off }) { $0.syncNow() },
+        AppCommand(id: "sync-issues", title: "Sync Issues", keywords: ["rejected", "errors", "conflicts", "problems"], symbol: "exclamationmark.icloud", isEnabled: { $0.syncStatus != .off }) { $0.showSyncIssues() },
         AppCommand(id: "reload", title: "Reload Graph", keywords: ["refresh"], symbol: "arrow.clockwise") { $0.reloadGraph() },
         AppCommand(id: "reindex", title: "Rebuild Search Index", keywords: ["reindex", "repair"], symbol: "wrench.and.screwdriver") { $0.rebuildIndexes() },
         AppCommand(id: "export-mirror", title: "Export Markdown Mirror", keywords: ["markdown", "files", "write"], symbol: "square.and.arrow.up") { $0.exportMirror() },

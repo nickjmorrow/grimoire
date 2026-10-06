@@ -248,3 +248,18 @@ struct Export: ParsableCommand {
         }
     }
 }
+
+struct Backup: ParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "Copy the database and assets into a folder, check the copy, and thin old copies (14 daily, 8 weekly).")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "Folder to keep backups in.") var folder: String
+    @Option(help: "Daily copies to keep.") var daily = 14
+    @Option(help: "Weekly copies to keep.") var weekly = 8
+    func run() throws {
+        try guarded {
+            let r = try g.open().backup(to: URL(fileURLWithPath: (folder as NSString).expandingTildeInPath), daily: daily, weekly: weekly)
+            if g.json { printJSON(["path": r.database.path, "assetsCopied": r.assetsCopied, "pruned": r.pruned.count]) }
+            else { print("\(r.database.path) (+\(r.assetsCopied) assets, \(r.pruned.count) old copies removed)") }
+        }
+    }
+}

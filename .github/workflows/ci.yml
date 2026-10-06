@@ -27,6 +27,22 @@ jobs:
       - run: swift --version
       - run: swift test --package-path ${{ matrix.package }}
 
+  performance:
+    name: Performance budgets
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: Core/.build
+          key: spm-perf-${{ runner.os }}-${{ hashFiles('Core/Package.swift', 'Core/Package.resolved') }}
+          restore-keys: spm-perf-${{ runner.os }}-
+      # The spec's §8 budgets on a synthetic graph, in release mode. A shared runner is noisy, so a miss gets one rerun before it fails the job.
+      - name: Run budgets
+        run: |
+          run() { swift test -c release -Xswiftc -enable-testing --package-path Core --filter PerformanceTests; }
+          run || { echo "::warning::budgets missed once, rerunning"; run; }
+
   mcp:
     name: MCP server tests
     runs-on: macos-latest

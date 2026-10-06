@@ -57,7 +57,7 @@ Grimoire is a personal, single-user knowledge app for macOS and iOS that replace
 | **Core** (Swift package) | The only code that knows the data model: schema + migrations, ops, Markdown parsing, link/property extraction, indexes, queries (backlinks, search, recents, favorites), import, export, mirror writer, journal identity | GRDB |
 | **GrimoireApp** (macOS + iOS targets) | UI: editor, navigation, panes, palette, themes, sync client | Core |
 | **grim** (CLI, macOS) | Command-line access for Claude Code and scripts | Core |
-| **grim-mcp** (MCP server, macOS) | The same operations as MCP tools (stdio), for Claude Code | Core, Swift MCP SDK |
+| **grim-mcp** (MCP server, macOS) | The same operations as MCP tools (stdio), for Claude Code | `grim` (Python, stdio) |
 | **grim-sync** (server on the hub, macOS) | Receives ops, assigns global order, applies to hub copy, serves catch-up | Core |
 
 **Graph folder:** on the Mac `~/Grimoire/` holds `graph.sqlite`, `assets/`, `mirror/` and `themes/`; on iPhone the same layout lives in the app container; on the hub the hub lives in `~/Library/Application Support/Grimoire/hub/`.
@@ -174,7 +174,7 @@ Replication follows DDIA's multi-leader-with-offline-clients pattern: each devic
 
 ## 6. Claude access (M1, the Mac)
 
-`grim` CLI and `grim-mcp` expose the same operations through Core:
+`grim` CLI and the MCP server (`mcp/grim_mcp.py`, which wraps `grim`) expose the same operations through Core:
 
 - **Read:** `today`, `page <title>`, `journal <date>`, `search <query>`, `backlinks <page>`, `recent`, `favorites`, `tag <tag>`, `prop <key> [value]`, `query <sql>` (read-only connection).
 - **Write:** `append <page|today> <markdown>`, `insert`, `edit`, `move`, `delete` (block), `create-page`, `rename-page` (rewrites referencing links), `tag`, `set-prop`, `favorite`.
@@ -200,7 +200,7 @@ Replication follows DDIA's multi-leader-with-offline-clients pattern: each devic
 
 ### Backups
 
-- The hub snapshots the hub database and `assets/` nightly (SQLite online backup), keeps 14 daily + 8 weekly, and copies them to an off-site encrypted backup. Moving data into `~/Sync` is an "ask first" action, so the destination folder is confirmed with the owner before the job is enabled.
+- `grim backup <folder>` takes a SQLite online backup (safe while the app is open), checks the copy with `integrity_check`, copies new assets, and keeps 14 daily + 8 weekly copies. Run it nightly against the hub graph and point it at the off-site encrypted destination; the scheduled job is not set up yet. Moving data into `~/Sync` is an "ask first" action, so the destination folder is confirmed with the owner before the job is enabled.
 - The Markdown mirror on the Mac is a second, human-readable copy.
 
 ## 8. Performance budgets
@@ -269,11 +269,12 @@ Measured against a copy of the imported real graph.
 `~/Projects/grimoire` (local git; GitHub remote only when the owner approves):
 
 ```
-Core/            Swift package (GrimoireCore + tests)
-App/             Xcode project: macOS + iOS targets
-CLI/             grim, grim-mcp
-Server/          grim-sync (the hub)
-themes/          Midnight Sun and future themes
+Core/            GrimoireCore (Swift package): data model, ops, indexes, import/export, mirror, backup, FSRS, sync
+UI/              GrimoireUI (Swift package): editor, panes, palette, themes; shared by Mac and iOS (themes live in UI/Sources/GrimoireUI/Resources)
+App/             XcodeGen project: macOS + iOS targets
+CLI/             grim (command line) and grim-sync (the hub)
+mcp/             grim_mcp.py, the MCP server (Python, stdio) that wraps grim
+scripts/         build and project-generation helpers
 docs/            specs, plans
 ```
 

@@ -17,6 +17,9 @@ public final class GraphStore {
     public var sidebarVisible = true
     public var paletteVisible = false
     public var settingsVisible = false
+    public var issuesVisible = false
+    /// What sync couldn't apply or send (rejected or unreadable changes), for the Sync Issues panel.
+    public private(set) var syncIssues: [SyncClient.Issue] = []
     /// True on a phone-sized window: one pane, sidebar as a drawer.
     public var compact = false
     public var paletteMode: PaletteMode = .all
@@ -53,6 +56,8 @@ public final class GraphStore {
     @ObservationIgnored private var syncClient: SyncClient?
     @ObservationIgnored private var syncTransport: SyncTransport?
     @ObservationIgnored private var syncing = false
+    @ObservationIgnored private var syncFailures = 0
+    @ObservationIgnored private var retryNotBefore = Date.distantPast
     @ObservationIgnored private var syncTimer: Timer?
     @ObservationIgnored private var syncKick: DispatchWorkItem?
 
@@ -105,7 +110,7 @@ public final class GraphStore {
         else if let cfg = SyncConfig.load(for: graph) { syncTransport = cfg.transport(); syncClient = cfg.client(for: graph) }
         else { syncStatus = .off; return }
         syncTimer?.invalidate()
-        syncTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.syncNow() } }
+        syncTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.syncNow(manual: false) } }
         syncNow()
     }
 
@@ -113,13 +118,15 @@ public final class GraphStore {
     public func kickSync() {
         guard syncClient != nil else { return }
         syncKick?.cancel()
-        let item = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.syncNow() } }
+        let item = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.syncNow(manual: false) } }
         syncKick = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: item)
     }
 
-    public func syncNow() {
+    /// `manual` syncs (the button, the palette) always try; the timer and the after-edit kick wait out the backoff after repeated failures.
+    public func syncNow(manual: Bool = true) {
         guard let client = syncClient, let transport = syncTransport, !syncing else { return }
+        if !manual, Date() < retryNotBefore { return }
         syncing = true
         syncStatus = .syncing
         flushAll()
@@ -128,12 +135,17 @@ public final class GraphStore {
                 let report = try await client.sync(using: transport)
                 lastSyncError = nil
                 lastSyncedAt = Date()
+                syncFailures = 0; retryNotBefore = .distantPast
                 refreshPending()
-                syncStatus = report.rejected > 0 ? .failed("\(report.rejected) change(s) were rejected by the hub; see sync issues") : .synced(Date(), conflicts: report.conflicts)
+                refreshIssues()
+                syncStatus = report.rejected > 0 ? .failed("\(report.rejected) change(s) were rejected by the hub; open Sync Issues") : .synced(Date(), conflicts: report.conflicts)
                 if report.pulled > 0 || report.rejected > 0 { lastVersion = watcher?.version() ?? lastVersion; databaseChanged() }
             } catch {
                 lastSyncError = "\(error)"
+                syncFailures += 1
+                retryNotBefore = Date().addingTimeInterval(SyncClient.retryDelay(afterFailures: syncFailures))
                 refreshPending()
+                refreshIssues()
                 let pending = (try? client.pendingCount()) ?? 0
                 syncStatus = (error is URLError) ? .offline(pending: pending) : .failed("\(error)")
             }
@@ -196,6 +208,16 @@ public final class GraphStore {
     }
 
     /// Re-counts the unsent changes (cheap: one count on an indexed column).
+    public func refreshIssues() { syncIssues = (try? syncClient?.issueList()) ?? [] }
+
+    public func showSyncIssues() { refreshIssues(); issuesVisible = true }
+
+    public func clearSyncIssues() {
+        do { try syncClient?.clearIssues() } catch { show("Couldn't clear: \(error)") }
+        refreshIssues()
+        if syncIssues.isEmpty { issuesVisible = false; if case .failed = syncStatus { syncStatus = .synced(Date(), conflicts: 0) } }
+    }
+
     public func refreshPending() {
         pendingChanges = (try? syncClient?.pendingCount()) ?? 0
         typingUnsaved = models.contains { $0.model?.isDirty == true }
