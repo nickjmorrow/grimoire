@@ -1,0 +1,16 @@
+.build/
+*.xcuserstate
+DerivedData/
+.superpowers/
+.dashboard/
+.DS_Store
+
+App/*.xcodeproj
+App/build/
+UI/.snapshots/
+App/build-ios/
+UI/Tests/.snapshots/
+App/build.noindex/
+App/build-ios.noindex/
+
+.env

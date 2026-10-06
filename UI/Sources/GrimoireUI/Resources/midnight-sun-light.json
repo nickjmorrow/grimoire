@@ -1,0 +1,26 @@
+{
+  "name": "Midnight Sun Light",
+  "appearance": "light",
+  "colors": {
+    "background": "#f3f5f9",
+    "surface": "#ffffff",
+    "surfaceRaised": "#e6eaf2",
+    "text": "#131b2e",
+    "textDim": "#4a5670",
+    "textFaint": "#6b7a96",
+    "accent": "#8a5d00",
+    "link": "#1f5fc4",
+    "tag": "#7a3fc4",
+    "bullet": "#6b7a96",
+    "selection": "#b0780040",
+    "code": "#a24a00",
+    "codeBackground": "#e9edf5",
+    "border": "#d3d9e6",
+    "success": "#1d7a45",
+    "warning": "#8a5d00",
+    "danger": "#c23030"
+  },
+  "fonts": { "bodySize": 15, "titleSize": 28, "codeSize": 13.5, "lineHeightMultiple": 1.35 },
+  "spacing": { "indent": 22, "blockGap": 3, "pagePadding": 28 },
+  "radius": 8
+}

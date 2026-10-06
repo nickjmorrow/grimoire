@@ -1,0 +1,26 @@
+{
+  "name": "Midnight Sun",
+  "appearance": "dark",
+  "colors": {
+    "background": "#0b1120",
+    "surface": "#0f172a",
+    "surfaceRaised": "#18233d",
+    "text": "#e3e8f2",
+    "textDim": "#9aa8c2",
+    "textFaint": "#6b7a96",
+    "accent": "#ffcc33",
+    "link": "#6ea8ff",
+    "tag": "#c792ea",
+    "bullet": "#6b7a96",
+    "selection": "#ffcc3347",
+    "code": "#ffa657",
+    "codeBackground": "#131d33",
+    "border": "#22304f",
+    "success": "#7ee0a1",
+    "warning": "#ffcc33",
+    "danger": "#ff6b6b"
+  },
+  "fonts": { "bodySize": 15, "titleSize": 28, "codeSize": 13.5, "lineHeightMultiple": 1.35 },
+  "spacing": { "indent": 22, "blockGap": 3, "pagePadding": 28 },
+  "radius": 8
+}
