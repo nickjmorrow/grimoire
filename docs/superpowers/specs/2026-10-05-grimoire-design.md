@@ -8,7 +8,7 @@ Grimoire is a personal, single-user knowledge app for macOS and iOS that replace
 
 ### Goals
 
-- **Daily driver on Mac (Mac) and iPhone.** Native apps, fully usable offline.
+- **Daily driver on Mac and iPhone.** Native apps, fully usable offline.
 - **Outliner editing.** Every page and journal is a tree of bullet blocks; Markdown is the text language inside every block.
 - **Fast.** Launch, open, type, search and palette all meet the budgets in §8.
 - **Themable everywhere.** One token-based theme file drives both apps; Midnight Sun ships first.
@@ -42,7 +42,7 @@ Grimoire is a personal, single-user knowledge app for macOS and iOS that replace
 └──────────────┬──────────────────────┘                 │
                │ sync over Tailscale                    │
         ┌──────▼────────────────────────────────────────▼──┐
-        │ the hub: sync server (Core) + hub graph.sqlite      │
+        │ Hub: sync server (Core) + hub graph.sqlite      │
         │ → (M2) integrations, jobs, cards page      │
         │ → nightly snapshot off-site                       │
         └───────────────────────────────────────────────────┘
@@ -145,7 +145,7 @@ Indexes are updated in the same transaction as the edit that changes their sourc
 
 - A theme is a JSON file of tokens: colors (surfaces, text, accent, link, tag, bullet, selection, code), fonts and sizes, spacing, bullet style, corner radius.
 - Theme files live in the graph's `themes/` folder, hot-reload on change, and apply to every surface on both platforms.
-- Midnight Sun (dark + light variant) is generated from `~/Projects/dotfiles/themes/midnight-sun/palette.json` by its `build.py`.
+- Midnight Sun (dark + light variant) is generated from a palette file by a build script.
 
 ## 5. Sync
 

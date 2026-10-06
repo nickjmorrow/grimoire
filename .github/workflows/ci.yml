@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: ${{ matrix.package }} tests
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [Core, CLI, UI]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ matrix.package }}/.build
+          key: spm-${{ matrix.package }}-${{ runner.os }}-${{ hashFiles(format('{0}/Package.swift', matrix.package), format('{0}/Package.resolved', matrix.package)) }}
+          restore-keys: spm-${{ matrix.package }}-${{ runner.os }}-
+      - run: swift --version
+      - run: swift test --package-path ${{ matrix.package }}
+
+  mcp:
+    name: MCP server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest -v test_grim_mcp
+        working-directory: mcp
+
+  app:
+    name: Build apps (macOS + iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: scripts/generate-project.sh --quiet
+      - name: Build Mac app
+        working-directory: App
+        run: |
+          xcodebuild -project Grimoire.xcodeproj -scheme Grimoire -configuration Debug \
+            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Build iOS app (simulator)
+        working-directory: App
+        run: |
+          xcodebuild -project Grimoire.xcodeproj -scheme GrimoireiOS -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
