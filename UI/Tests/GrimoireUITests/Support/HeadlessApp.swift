@@ -4,6 +4,9 @@ import GrimoireCore
 import SwiftUI
 @testable import GrimoireUI
 
+/// Tests that inject keystrokes into a hidden window need a real GUI session; hosted CI runners don't have one, so those suites skip there (they run locally).
+let hasGUISession = ProcessInfo.processInfo.environment["CI"] == nil
+
 /// The whole window (sidebar, panes, editors) hosted in a window that is never shown, driven by injected events.
 @MainActor
 final class HeadlessApp {

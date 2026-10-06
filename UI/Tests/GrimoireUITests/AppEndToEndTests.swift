@@ -6,7 +6,7 @@ import Testing
 
 private func freshGraph() throws -> Graph { try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("e2e-\(UUID().uuidString)"), device: "e2e") }
 
-@Suite(.serialized) @MainActor struct AppEndToEndTests {
+@Suite(.serialized, .enabled(if: hasGUISession)) @MainActor struct AppEndToEndTests {
     @Test func journalsOpenWithTodaysEditorFocusedAndTypingReachesTheDatabase() async throws {
         let g = try freshGraph()
         let app = HeadlessApp(graph: g)
@@ -53,7 +53,7 @@ private func freshGraph() throws -> Graph { try Graph(folder: FileManager.defaul
 #endif
 
 #if os(macOS)
-@Suite(.serialized) @MainActor struct AutocompleteEndToEndTests {
+@Suite(.serialized, .enabled(if: hasGUISession)) @MainActor struct AutocompleteEndToEndTests {
     @Test func typingDoubleBracketOpensThePopupAndEnterInsertsTheLink() async throws {
         let g = try freshGraph()
         try g.perform([.createPage(id: "foc", title: "Focaccia", kind: .page, journalDate: nil)], author: .me)
@@ -98,7 +98,7 @@ private func freshGraph() throws -> Graph { try Graph(folder: FileManager.defaul
 #endif
 
 #if os(macOS)
-@Suite(.serialized) @MainActor struct PaletteEndToEndTests {
+@Suite(.serialized, .enabled(if: hasGUISession)) @MainActor struct PaletteEndToEndTests {
     @Test func paletteOverlayTypesRanksAndOpensAPage() async throws {
         let g = try freshGraph()
         try g.perform([.createPage(id: Graph.pageID(forTitle: "Focaccia"), title: "Focaccia", kind: .page, journalDate: nil)], author: .me)
