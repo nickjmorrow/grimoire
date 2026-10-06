@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/nickjmorrow/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/nickjmorrow/grimoire/actions/workflows/ci.yml)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%2015%20%C2%B7%20iOS%2018-blue)
 
 A local-first, outliner-style knowledge app for macOS and iOS: daily journals, linked pages, spaced-repetition flashcards, and a CLI and MCP server so AI tools can read and edit your notes.
@@ -75,3 +76,7 @@ For iOS device builds, copy `.env.example` to `.env` and set `DEVELOPMENT_TEAM` 
 ## Status
 
 Active personal project. Milestone 1 (journals, pages, editor, search, sync, import, CLI and MCP) is the daily driver; Milestone 2 (flashcards, diagrams, integrations) is in progress. See the design spec for the roadmap.
+
+## License
+
+[MIT](LICENSE)
