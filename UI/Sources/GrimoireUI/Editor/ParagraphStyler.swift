@@ -17,8 +17,12 @@ public enum ParagraphStyler {
         return [.font: theme.bodyFont(), .foregroundColor: theme.colors.platformColor(\.text), .paragraphStyle: style]
     }
 
-    /// Restyles the paragraph occupying `range` (including its newline).
-    public static func apply(to storage: NSMutableAttributedString, range: NSRange, theme: Theme) {
+    /// Concealed syntax keeps its characters (so the block's text and offsets don't change) but takes no visible width.
+    static let concealedFontSize: CGFloat = 0.01
+
+    /// Restyles the paragraph occupying `range` (including its newline). With `concealSyntax`, formatting delimiters
+    /// such as `**` are hidden, leaving only their effect; the editor reveals them in the bullet being edited.
+    public static func apply(to storage: NSMutableAttributedString, range: NSRange, theme: Theme, concealSyntax: Bool = false) {
         guard range.length > 0, NSMaxRange(range) <= storage.length else { return }
         let ns = storage.string as NSString
         var textRange = range
@@ -40,6 +44,21 @@ public enum ParagraphStyler {
             let r = NSRange(location: textRange.location + s.range.location, length: s.range.length)
             guard r.length > 0, NSMaxRange(r) <= NSMaxRange(textRange) else { continue }
             style(s.style, in: r, storage: storage, theme: theme, headingScale: headingLevel > 0)
+        }
+        guard concealSyntax else { return }
+        for c in MarkdownStyler.concealable(in: spans) {
+            let r = NSRange(location: textRange.location + c.location, length: c.length)
+            let font = currentFont(storage, at: r.location, theme)
+            storage.addAttributes([.font: PlatformFont(descriptor: font.fontDescriptor, size: concealedFontSize) ?? font,
+                                   .foregroundColor: PlatformColor.clear], range: r)
+        }
+    }
+
+    /// Restyles whole rows (by index), concealing formatting syntax in all of them or revealing it.
+    static func restyle(rows: some Sequence<Int>, in storage: NSMutableAttributedString, theme: Theme, concealSyntax: Bool) {
+        let ranges = OutlineStorage.rowRanges(in: storage)
+        for i in rows where ranges.indices.contains(i) {
+            apply(to: storage, range: ranges[i], theme: theme, concealSyntax: concealSyntax)
         }
     }
 

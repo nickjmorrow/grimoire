@@ -73,6 +73,33 @@ func snapshot(_ v: OutlineTextView, name: String) {
         #expect(!NSFontManager.shared.traits(of: plain).contains(.boldFontMask))
     }
 
+    private func isConcealed(_ v: OutlineTextView, _ needle: String, after start: Int = 0) -> Bool {
+        let ns = v.textStorage!.string as NSString
+        let at = ns.range(of: needle, range: NSRange(location: start, length: ns.length - start)).location
+        return (v.textStorage!.attribute(.font, at: at, effectiveRange: nil) as! NSFont).pointSize < 1
+    }
+
+    @Test func formattingSyntaxShowsOnlyInTheFocusedBullet() {
+        let v = makeView([r("a", 0, "plain **bold** text"), r("b", 0, "# Head with `code`")])
+        #expect(isConcealed(v, "**") && isConcealed(v, "# ") && isConcealed(v, "`"))
+        #expect(!isConcealed(v, "bold") && !isConcealed(v, "code"))
+
+        v.window!.makeFirstResponder(v)
+        v.setSelectedRange(NSRange(location: 2, length: 0))                   // caret in the first bullet
+        #expect(!isConcealed(v, "**") && isConcealed(v, "# "))
+
+        v.insertText("!", replacementRange: v.selectedRange())               // typing keeps it revealed
+        #expect(!isConcealed(v, "**") && v.currentDoc.rows[0].text == "pl!ain **bold** text")
+
+        let second = OutlineStorage.rowRanges(in: v.textStorage!)[1].location
+        v.setSelectedRange(NSRange(location: second + 3, length: 0))        // moving on conceals it again
+        #expect(isConcealed(v, "**") && !isConcealed(v, "# ") && !isConcealed(v, "`", after: second))
+
+        v.window!.makeFirstResponder(nil)
+        #expect(isConcealed(v, "# ") && isConcealed(v, "`", after: second))
+        #expect(v.currentDoc.rows.map(\.text) == ["pl!ain **bold** text", "# Head with `code`"])
+    }
+
     @Test func typingIntoABlockChangesOnlyThatRow() {
         let v = makeView([r("a", 0, "hello"), r("b", 0, "world")])
         v.setSelectedRange(NSRange(location: 5, length: 0))

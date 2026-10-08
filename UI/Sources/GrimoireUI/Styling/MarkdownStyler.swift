@@ -55,6 +55,32 @@ public enum MarkdownStyler {
         scanner.run()
         return scanner.finish()
     }
+
+    /// The formatting syntax a block shows only while it's being edited: the delimiters of bold, italic, strike and inline
+    /// code, a heading's `#`s with the spaces after them, and everything of `[label](url)` but the label.
+    /// Page-link, tag, block-reference, image, quote and fence syntax stays visible.
+    public static func concealable(in spans: [StyleSpan]) -> [NSRange] {
+        let markers = spans.filter { $0.style == .marker }.map(\.range)
+        var out: [NSRange] = []
+        for s in spans {
+            switch s.style {
+            case .bold, .italic, .boldItalic, .strike, .code:
+                out += markers.filter { NSMaxRange($0) == s.range.location || $0.location == NSMaxRange(s.range) }
+            case .markdownLink:
+                out.append(NSRange(location: s.range.location - 1, length: 1))
+                if let t = spans.first(where: { $0.style == .linkTarget && $0.range.location == NSMaxRange(s.range) + 1 }) {
+                    out.append(NSRange(location: NSMaxRange(s.range), length: NSMaxRange(t.range) - NSMaxRange(s.range)))
+                }
+            case .heading:
+                // The heading's own `#` run is the last marker before its text; only spaces lie between them.
+                if let m = markers.filter({ NSMaxRange($0) <= s.range.location }).max(by: { $0.location < $1.location }) {
+                    out.append(NSRange(location: m.location, length: s.range.location - m.location))
+                }
+            default: break
+            }
+        }
+        return Array(Set(out)).sorted { $0.location < $1.location }
+    }
 }
 
 private struct Scanner {

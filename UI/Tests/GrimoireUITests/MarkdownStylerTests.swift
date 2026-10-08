@@ -178,6 +178,28 @@ private func texts(_ text: String, _ style: Style) -> [String] {
         #expect(MarkdownStyler.spans(for: t).first?.style == .tag)
     }
 
+    private func concealed(_ text: String) -> [String] {
+        let ns = text as NSString
+        return MarkdownStyler.concealable(in: MarkdownStyler.spans(for: text)).map { ns.substring(with: $0) }
+    }
+
+    @Test func formattingSyntaxIsConcealable() {
+        #expect(concealed("a **b** c") == ["**", "**"])
+        #expect(concealed("**bold _x_**") == ["**", "_", "_", "**"])
+        #expect(concealed("~~s~~ and `code`") == ["~~", "~~", "`", "`"])
+        #expect(concealed("## Title **b**") == ["## ", "**", "**"])
+        #expect(concealed("line\u{2028}# Head") == ["# "])
+        #expect(concealed("see [the docs](https://a.com/x) now") == ["[", "](https://a.com/x)"])
+        #expect(concealed("![alt](pic.png)").isEmpty)
+    }
+
+    @Test func linkTagAndReferenceSyntaxStaysVisible() {
+        #expect(concealed("[[Page]] #[[a b]] #tag ((6721b0c4-1111-4222-8333-944455556666)) > q").isEmpty)
+        #expect(concealed("**[[x]]**") == ["**", "**"])
+        #expect(concealed("```\ncode\n```").isEmpty)
+        #expect(concealed("**unclosed").isEmpty)
+    }
+
     @Test func tenThousandCharactersIsFast() {
         let unit = "Some **bold** and _it_ with [[Page]] #tag `code` https://a.com/x ((abc-1)) ~~s~~ snake_case_x "
         var text = ""

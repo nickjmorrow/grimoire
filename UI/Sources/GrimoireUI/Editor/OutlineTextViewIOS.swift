@@ -15,6 +15,8 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
     private var base: [NSAttributedString.Key: Any]
     private var lastRowCount = 0
     private var restyling = false
+    /// Rows whose formatting syntax is showing (the bullets the selection is in, while editing).
+    private var revealedRows: Set<Int> = []
     private var activeTrigger: AutocompleteTrigger?
     private let accessory = EditorAccessory()
     var autocompleteItems: [AutocompleteItem] { accessory.items }
@@ -71,6 +73,8 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
         if textStorage.length > 0 {
             let doc = currentDoc
             textStorage.setAttributedString(OutlineStorage.attributed(doc: doc, base: base, indent: indent, gutter: gutter))
+            revealedRows = []
+            updateRevealedRows()
         }
         accessory.apply(theme: newTheme)
         textLayoutManager?.invalidateLayout(for: textLayoutManager!.documentRange)
@@ -83,6 +87,7 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
 
     public func load(_ doc: OutlineDoc) {
         textStorage.setAttributedString(OutlineStorage.attributed(doc: doc, base: base, indent: indent, gutter: gutter))
+        revealedRows = []
         lastRowCount = doc.rows.count
         undoManager?.removeAllActions()
         selectedRange = NSRange(location: 0, length: 0)
@@ -102,6 +107,7 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
             let off = min(sel.head.offset, (doc.rows[row].text as NSString).length)
             selectedRange = OutlineStorage.range(for: OutlineSelection(caret: OutlinePos(row: row, offset: off)), in: textStorage)
         }
+        updateRevealedRows(force: true)
         invalidateIntrinsicContentSize()
     }
 
@@ -149,7 +155,7 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
         while p < end {
             var q = p
             while q < ns.length { let c = ns.character(at: q); q += 1; if c == 0x0A { break } }
-            ParagraphStyler.apply(to: storage, range: NSRange(location: p, length: q - p), theme: theme)
+            ParagraphStyler.apply(to: storage, range: NSRange(location: p, length: q - p), theme: theme, concealSyntax: true)
             p = q
         }
         restyling = false
@@ -161,12 +167,34 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
         let count = OutlineStorage.rowRanges(in: textStorage).count
         if count != lastRowCount { lastRowCount = count; refreshDerivedAttributes() }
         model?.noteEdited()
+        updateRevealedRows(force: true)
         invalidateIntrinsicContentSize()
         onContentSizeChange?()
         updateAutocomplete()
     }
 
-    public func textViewDidChangeSelection(_ textView: UITextView) { updateAutocomplete() }
+    public func textViewDidChangeSelection(_ textView: UITextView) { updateAutocomplete(); updateRevealedRows() }
+    public func textViewDidBeginEditing(_ textView: UITextView) { updateRevealedRows() }
+    public func textViewDidEndEditing(_ textView: UITextView) { updateRevealedRows() }
+
+    /// Reveals the formatting syntax of the bullets the selection is in and conceals it everywhere else.
+    /// `force` restyles the revealed rows even if they were already revealed (an edit just concealed them).
+    func updateRevealedRows(force: Bool = false) {
+        guard textStorage.editedMask.isEmpty else { return }
+        let wanted: Set<Int> = isFirstResponder ? Set(selection.rowRange) : []
+        let conceal = revealedRows.subtracting(wanted)
+        let reveal = force ? wanted : wanted.subtracting(revealedRows)
+        revealedRows = wanted
+        guard !conceal.isEmpty || !reveal.isEmpty else { return }
+        restyling = true
+        undoManager?.disableUndoRegistration()
+        textStorage.beginEditing()
+        ParagraphStyler.restyle(rows: conceal, in: textStorage, theme: theme, concealSyntax: true)
+        ParagraphStyler.restyle(rows: reveal, in: textStorage, theme: theme, concealSyntax: false)
+        textStorage.endEditing()
+        undoManager?.enableUndoRegistration()
+        restyling = false
+    }
 
     func refreshDerivedAttributes() {
         let derived = OutlineStorage.derived(currentDoc)

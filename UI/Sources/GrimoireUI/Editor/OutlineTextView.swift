@@ -27,6 +27,8 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
     private var base: [NSAttributedString.Key: Any]
     private var lastRowCount = 0
     private var restyling = false
+    /// Rows whose formatting syntax is showing (the bullets the selection is in, while the editor has focus).
+    private var revealedRows: Set<Int> = []
 
     public init(theme: Theme) {
         let content = NSTextContentStorage()
@@ -81,6 +83,8 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         if let storage = textStorage, storage.length > 0 {
             let doc = currentDoc
             storage.setAttributedString(OutlineStorage.attributed(doc: doc, base: base, indent: indent, gutter: gutter))
+            revealedRows = []
+            updateRevealedRows()
         }
         textLayoutManager?.invalidateLayout(for: textLayoutManager!.documentRange)
         scheduleDiagramRefresh(after: 0.05)
@@ -95,6 +99,7 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
     public func load(_ doc: OutlineDoc) {
         guard let storage = textStorage else { return }
         storage.setAttributedString(OutlineStorage.attributed(doc: doc, base: base, indent: indent, gutter: gutter))
+        revealedRows = []
         lastRowCount = doc.rows.count
         undoManager?.removeAllActions()
         scheduleDiagramRefresh(after: 0.05)
@@ -118,6 +123,7 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
             let off = min(sel.head.offset, (doc.rows[row].text as NSString).length)
             setSelectedRange(OutlineStorage.range(for: OutlineSelection(caret: OutlinePos(row: row, offset: off)), in: storage))
         }
+        updateRevealedRows(force: true)
         invalidateIntrinsicContentSize()
     }
 
@@ -165,14 +171,35 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         while p < end {
             var q = p
             while q < ns.length { let c = ns.character(at: q); q += 1; if c == 0x0A { break } }
-            ParagraphStyler.apply(to: storage, range: NSRange(location: p, length: q - p), theme: theme)
+            ParagraphStyler.apply(to: storage, range: NSRange(location: p, length: q - p), theme: theme, concealSyntax: true)
             p = q
         }
         restyling = false
     }
 
+    /// Reveals the formatting syntax of the bullets the selection is in and conceals it everywhere else.
+    /// `force` restyles the revealed rows even if they were already revealed (an edit just concealed them).
+    func updateRevealedRows(force: Bool = false, focused: Bool? = nil) {
+        guard let storage = textStorage, storage.editedMask.isEmpty else { return }
+        let isFocused = focused ?? (window?.firstResponder === self)
+        let wanted: Set<Int> = isFocused ? Set(selection.rowRange) : []
+        let conceal = revealedRows.subtracting(wanted)
+        let reveal = force ? wanted : wanted.subtracting(revealedRows)
+        revealedRows = wanted
+        guard !conceal.isEmpty || !reveal.isEmpty else { return }
+        restyling = true
+        undoManager?.disableUndoRegistration()
+        storage.beginEditing()
+        ParagraphStyler.restyle(rows: conceal, in: storage, theme: theme, concealSyntax: true)
+        ParagraphStyler.restyle(rows: reveal, in: storage, theme: theme, concealSyntax: false)
+        storage.endEditing()
+        undoManager?.enableUndoRegistration()
+        restyling = false
+    }
+
     public override func didChangeText() {
         super.didChangeText()
+        updateRevealedRows(force: true)
         if let storage = textStorage {
             let count = OutlineStorage.rowRanges(in: storage).count
             if count != lastRowCount { lastRowCount = count; refreshDerivedAttributes() }
@@ -187,6 +214,7 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
     public override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting stillSelectingFlag: Bool) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
         if !stillSelectingFlag { reportCaretContext() }
+        updateRevealedRows()
     }
 
     private func reportCaretContext() {
@@ -626,9 +654,17 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         super.viewWillMove(toWindow: newWindow)
     }
 
+    public override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { updateRevealedRows(focused: true) }
+        return became
+    }
+
     public override func resignFirstResponder() -> Bool {
         flushPendingSave()
-        return super.resignFirstResponder()
+        let resigned = super.resignFirstResponder()
+        if resigned { updateRevealedRows(focused: false) }
+        return resigned
     }
 }
 #endif
