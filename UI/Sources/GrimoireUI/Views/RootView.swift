@@ -24,6 +24,16 @@ struct RootView: View {
         }
         .background(store.color(\.background))
         .background { alternateShortcuts }
+        .confirmationDialog("Delete “\(store.pageAwaitingDeletion?.title ?? "")”?",
+                            isPresented: Binding(get: { store.pageAwaitingDeletion != nil }, set: { if !$0 { store.pageAwaitingDeletion = nil } }),
+                            titleVisibility: .visible, presenting: store.pageAwaitingDeletion) { page in
+            Button("Delete Page", role: .destructive) { store.deletePage(id: page.id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            let n = store.pageAwaitingDeletionLinks
+            Text(n == 0 ? "The page and everything on it will be deleted."
+                 : "Everything on it will be deleted. It's linked from \(n) page\(n == 1 ? "" : "s"); those links stay and open an empty page.")
+        }
         #if os(macOS)
         .background(OpaqueWindow(color: store.theme.colors.platformColor(\.background)))
         #endif

@@ -98,6 +98,19 @@ extension Graph {
         return id
     }
 
+    /// The op that deletes a page (one undo step). A page other pages link to stays (their links would bring it straight back):
+    /// its blocks are deleted and it's unfavorited instead, so it leaves the page list and the links open an empty page.
+    public func deletePageOp(pageID: String) throws -> Op {
+        guard let page = try db.read({ try Page.fetchOne($0, key: pageID) }) else { throw GraphError.pageNotFound(pageID) }
+        guard try !backlinks(pageID: pageID).isEmpty else { return .deletePage(id: pageID) }
+        let roots = try db.read {
+            try String.fetchAll($0, sql: "SELECT id FROM blocks WHERE page_id = ? AND parent_id IS NULL", arguments: [pageID])
+        }
+        var ops: [Op] = roots.map { .deleteBlock(blockID: $0) }
+        if page.favorite { ops.append(.setFavorite(pageID: pageID, favorite: false, order: nil)) }
+        return .batch(ops)
+    }
+
     /// Copies a file into `assets/` under its content hash and records it. Importing the same bytes twice is a no-op.
     public func importAsset(from url: URL, author: Author) throws -> Asset {
         var hasher = SHA256()

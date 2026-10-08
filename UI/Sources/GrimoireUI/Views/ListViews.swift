@@ -30,6 +30,8 @@ struct AllPagesView: View {
                                 .font(.system(size: 11)).foregroundStyle(store.color(\.textFaint))
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).listRowBackground(Color.clear)
+                    .contextMenu { Button("Delete Page…", role: .destructive) { store.requestDeletePage(p.id) } }
+                    .swipeActions { Button("Delete") { store.requestDeletePage(p.id) }.tint(.red) }
                 }
             }.listStyle(.plain).scrollContentBackground(.hidden).calmScroll()
         }

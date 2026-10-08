@@ -79,7 +79,10 @@ struct Sidebar: View {
     private func pageRow(_ page: Page, icon: String?) -> some View {
         SidebarRow(store: store, title: page.kind == .journal ? (page.journalDate.flatMap(JournalDate.init(iso:))?.longTitle ?? page.title) : page.title,
                    symbol: icon, active: store.focusedPane.location == .page(page.id)) { store.open(.page(page.id)) }
-            .contextMenu { Button("Open in New Pane") { store.open(.page(page.id), newPane: true) } }
+            .contextMenu {
+                Button("Open in New Pane") { store.open(.page(page.id), newPane: true) }
+                Button("Delete Page…", role: .destructive) { store.requestDeletePage(page.id) }
+            }
     }
 }
 

@@ -53,6 +53,9 @@ public enum CommandRegistry {
         AppCommand(id: "new-page", title: "New Page", keywords: ["create"], shortcut: Shortcut("n"), symbol: "plus", menu: "File") { $0.newPage() },
         AppCommand(id: "toggle-favorite", title: "Toggle Favorite", keywords: ["star", "pin"], shortcut: Shortcut("d"), symbol: "star", menu: "File",
                    isEnabled: { if case .page = $0.focusedPane.location { return true } else { return false } }) { $0.toggleFavoriteOfFocusedPage() },
+        AppCommand(id: "delete-page", title: "Delete Page…", keywords: ["remove", "trash"], symbol: "trash", menu: "File",
+                   isEnabled: { if case .page = $0.focusedPane.location { return true } else { return false } }) {
+            if case .page(let id) = $0.focusedPane.location { $0.requestDeletePage(id) } },
         AppCommand(id: "split", title: "Open in Split Pane", keywords: ["side by side", "split", "duplicate"], shortcut: Shortcut("\\", shift: true), symbol: "rectangle.split.2x1", menu: "View",
                    isEnabled: { $0.panes.count < GraphStore.maxPanes }) { $0.open($0.focusedPane.location, newPane: true) },
         AppCommand(id: "close-pane", title: "Close Pane", shortcut: Shortcut("w"), symbol: "xmark", menu: "File") { $0.closeFocusedPaneOrWindow() },

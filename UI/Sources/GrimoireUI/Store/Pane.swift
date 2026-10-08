@@ -27,4 +27,10 @@ public struct Pane: Identifiable, Equatable, Sendable {
     public var canGoForward: Bool { !forward.isEmpty }
     public mutating func goBack() { guard let l = back.popLast() else { return }; forward.append(location); location = l }
     public mutating func goForward() { guard let l = forward.popLast() else { return }; back.append(location); location = l }
+    /// Drops a location that no longer exists (a deleted page) from the history; if it's showing, the pane goes back.
+    public mutating func forget(_ gone: Location) {
+        back.removeAll { $0 == gone }
+        forward.removeAll { $0 == gone }
+        if location == gone { location = back.popLast() ?? .allPages }
+    }
 }

@@ -24,6 +24,9 @@ public final class GraphStore {
     public var compact = false
     public var paletteMode: PaletteMode = .all
     public var toast: String?
+    /// The page the delete confirmation is asking about, and how many other pages link to it.
+    public var pageAwaitingDeletion: Page?
+    public private(set) var pageAwaitingDeletionLinks = 0
     /// Shown at the foot of the sidebar.
     public private(set) var syncStatus: SyncStatus = .off
     /// Why the last sync failed (the sidebar's sync line shows it when tapped while offline or in error).
@@ -366,6 +369,26 @@ public final class GraphStore {
         catch { show("Couldn't rename: \(error)"); return false }
         databaseChanged()
         return true
+    }
+
+    /// Asks to confirm deleting a page.
+    public func requestDeletePage(_ pageID: String) {
+        guard let p = page(id: pageID) else { return }
+        pageAwaitingDeletionLinks = (try? graph.backlinks(pageID: pageID).count) ?? 0
+        pageAwaitingDeletion = p
+    }
+
+    /// Deletes a page and its blocks (a linked page is only emptied, see `Graph.deletePageOp`); panes showing it go back.
+    public func deletePage(id: String) {
+        flushAndWait()
+        guard let p = page(id: id) else { return }
+        do { try graph.perform([try graph.deletePageOp(pageID: id)], author: .me) }
+        catch { show("Couldn't delete: \(error)"); return }
+        for i in panes.indices { panes[i].forget(.page(id)) }
+        visited.removeAll { $0 == id }
+        savePanes()
+        databaseChanged()
+        show("Deleted “\(p.title)”")
     }
 
     public func show(_ message: String) {

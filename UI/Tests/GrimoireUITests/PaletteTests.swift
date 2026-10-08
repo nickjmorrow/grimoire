@@ -149,6 +149,45 @@ import Testing
     }
 }
 
+@Suite @MainActor struct DeletePageTests {
+    private func store() throws -> GraphStore {
+        let g = try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("del-\(UUID().uuidString)"), device: "t")
+        return GraphStore(graph: g, defaults: UserDefaults(suiteName: "del-\(UUID().uuidString)")!)
+    }
+    private func page(_ s: GraphStore, _ title: String, text: String) throws -> String {
+        let id = Graph.pageID(forTitle: title)
+        try s.graph.perform([.createPage(id: id, title: title, kind: .page, journalDate: nil),
+                             .insertBlock(id: UUID().uuidString.lowercased(), pageID: id, parentID: nil, orderKey: "a", text: text)], author: .me)
+        return id
+    }
+
+    @Test func deleteCommandConfirmsThenDeletesAndPanesGoBack() throws {
+        let s = try store()
+        let home = try page(s, "Home", text: "home"), scratch = try page(s, "Scratch", text: "junk")
+        s.open(.page(home)); s.open(.page(scratch)); s.open(.page(scratch), newPane: true)
+        let delete = try #require(CommandRegistry.command("delete-page"))
+        #expect(delete.isEnabled(s))
+        delete.run(s)
+        #expect(s.pageAwaitingDeletion?.id == scratch && s.page(id: scratch) != nil)   // nothing deleted before confirming
+        s.deletePage(id: scratch)
+        #expect(s.page(id: scratch) == nil)
+        #expect(s.panes.map(\.location) == [.page(home), .allPages])     // a pane with no history falls back to All Pages
+        #expect(s.panes.allSatisfy { !$0.back.contains(.page(scratch)) && !$0.forward.contains(.page(scratch)) })
+        #expect(!s.recents.contains { $0.id == scratch })
+    }
+
+    @Test func deletingALinkedPageEmptiesItAndTheLinkStays() throws {
+        let s = try store()
+        let rob = try page(s, "Rob", text: "about rob")
+        _ = try page(s, "Home", text: "met [[Rob]]")
+        s.requestDeletePage(rob)
+        #expect(s.pageAwaitingDeletion?.id == rob && s.pageAwaitingDeletionLinks == 1)
+        s.deletePage(id: rob)
+        #expect(try s.page(id: rob) != nil && s.graph.tree(pageID: rob).isEmpty)
+        #expect(try s.graph.backlinks(pageID: rob).count == 1)
+    }
+}
+
 @Suite @MainActor struct BlockRefDisplayTests {
     @Test func blockReferencesShowTheReferencedText() throws {
         let g = try Graph(folder: FileManager.default.temporaryDirectory.appendingPathComponent("ref-\(UUID().uuidString)"), device: "t")

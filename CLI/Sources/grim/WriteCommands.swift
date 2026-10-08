@@ -124,15 +124,18 @@ struct CreatePage: ParsableCommand {
 }
 
 struct DeletePage: ParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "delete-page", abstract: "Delete a page and all its blocks (undoable). Links to it stay as plain text links.")
+    static let configuration = CommandConfiguration(commandName: "delete-page", abstract: "Delete a page and all its blocks (undoable). A page other pages link to is emptied instead; the links stay.")
     @OptionGroup var g: GlobalOptions
     @Argument var title: String
     func run() throws {
         try guarded {
             let graph = try g.open()
-            guard let page = try graph.page(titled: title) else { throw GraphError.pageNotFound(title) }
-            try graph.perform([.deletePage(id: page.id)], author: try g.actor())
-            print("deleted \(page.title)")
+            guard let page = try graph.page(titled: clean(title)) else { throw GraphError.pageNotFound(title) }
+            let linking = try graph.backlinks(pageID: page.id).count
+            try graph.perform([try graph.deletePageOp(pageID: page.id)], author: try g.actor())
+            try graph.writeMirror(pageID: page.id)          // removes the page's mirror file
+            if g.json { printJSON(["ok": true, "deleted": page.title, "linkedFrom": linking]) }
+            else { print(linking > 0 ? "emptied \(page.title) (still linked from \(linking) page\(linking == 1 ? "" : "s"))" : "deleted \(page.title)") }
         }
     }
 }

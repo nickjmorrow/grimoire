@@ -76,6 +76,25 @@ import Testing
         #expect(try g.count("SELECT COUNT(*) FROM block_tags") == 1)
     }
 
+    @Test func deletePageOpsEmptyALinkedPageAndDeleteAnUnlinkedOne() throws {
+        let g = try graphWithHome()
+        try g.add("b1", "met #rob")
+        let rob = try g.page(titled: "rob")!
+        try g.add("r1", "about rob", page: rob.id)
+        try g.add("r2", "child", page: rob.id, parent: "r1")
+        try g.perform([.setFavorite(pageID: rob.id, favorite: true, order: nil)], author: .me)
+        try g.perform([try g.deletePageOp(pageID: rob.id)], author: .me)
+        #expect(try g.count("SELECT COUNT(*) FROM blocks WHERE page_id = ?", [rob.id]) == 0)
+        #expect(try g.page(titled: "rob")?.favorite == false)
+        #expect(try g.count("SELECT COUNT(*) FROM block_tags") == 1)               // the tag on Home still works
+        #expect(try g.undo(author: .me) == 1)                                         // one change, undone in one step
+        #expect(try g.count("SELECT COUNT(*) FROM blocks WHERE page_id = ?", [rob.id]) == 2)
+        #expect(try g.page(titled: "rob")?.favorite == true)
+
+        #expect(try g.deletePageOp(pageID: "home") == .deletePage(id: "home"))
+        #expect(throws: GraphError.pageNotFound("nope")) { try g.deletePageOp(pageID: "nope") }
+    }
+
     // Important: rewritten blocks' pages must show up as changed (mirror files, recents).
     @Test func renameTouchesPagesWhoseBlocksWereRewritten() throws {
         let g = try graphWithHome()

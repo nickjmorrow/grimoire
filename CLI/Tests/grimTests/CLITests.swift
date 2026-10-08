@@ -139,6 +139,33 @@ func tempGraph() -> URL { FileManager.default.temporaryDirectory.appendingPathCo
         #expect(try robID(linked) != nil && robID(linked) == robID(created))
     }
 
+    @Test func deletePageRemovesItsMirrorAndUndoBringsItBack() throws {
+        let g = tempGraph()
+        _ = try grim(["append", "Scratch", "- junk"], graph: g)
+        let mirror = g.appendingPathComponent("mirror/pages/Scratch.md")
+        #expect(FileManager.default.fileExists(atPath: mirror.path))
+        let d = try grim(["delete-page", "scratch", "--json"], graph: g)
+        #expect(d.code == 0, "\(d.err)")
+        #expect((try json(d) as! [String: Any])["deleted"] as? String == "Scratch")
+        #expect(!FileManager.default.fileExists(atPath: mirror.path))
+        #expect(try grim(["page", "Scratch"], graph: g).code == 2)
+        #expect(try grim(["undo"], graph: g).code == 0)
+        #expect(try grim(["page", "Scratch"], graph: g).out.contains("junk"))
+    }
+
+    @Test func deletingALinkedPageEmptiesItAndKeepsTheLinks() throws {
+        let g = tempGraph()
+        _ = try grim(["append", "Home", "- see [[Rob]]"], graph: g)
+        _ = try grim(["append", "Rob", "- about rob"], graph: g)
+        let d = try grim(["delete-page", "Rob", "--json"], graph: g)
+        #expect(d.code == 0, "\(d.err)")
+        #expect((try json(d) as! [String: Any])["linkedFrom"] as? Int == 1)
+        #expect(!(try grim(["page", "Rob"], graph: g).out.contains("about rob")))
+        #expect(try grim(["page", "Home"], graph: g).out.contains("[[Rob]]"))
+        #expect(!FileManager.default.fileExists(atPath: g.appendingPathComponent("mirror/pages/Rob.md").path))
+        #expect(try grim(["delete-page", "Nobody"], graph: g).code == 2)
+    }
+
     @Test func renameUpdatesMirrorOfPagesThatLinkToIt() throws {
         let g = tempGraph()
         _ = try grim(["append", "Other", "- see [[Old]]"], graph: g)

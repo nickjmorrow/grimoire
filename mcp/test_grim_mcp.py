@@ -54,6 +54,26 @@ class McpTests(unittest.TestCase):
         page, _ = self.s.tool("get_page", title="Focaccia")
         self.assertNotIn("80% water", page)
 
+    def test_delete_page_and_undo(self):
+        self.s.tool("append", target="Scratch", markdown="- junk")
+        text, err = self.s.tool("delete_page", title="Scratch")
+        self.assertFalse(err, text)
+        _, err = self.s.tool("get_page", title="Scratch")
+        self.assertTrue(err)
+        self.s.tool("undo_claude")
+        page, err = self.s.tool("get_page", title="Scratch")
+        self.assertFalse(err)
+        self.assertIn("junk", page)
+
+    def test_delete_linked_page_empties_it(self):
+        self.s.tool("append", target="Home", markdown="- see [[Rob]]")
+        self.s.tool("append", target="Rob", markdown="- about rob")
+        text, err = self.s.tool("delete_page", title="Rob")
+        self.assertFalse(err, text)
+        self.assertEqual(json.loads(text)["linkedFrom"], 1)
+        page, _ = self.s.tool("get_page", title="Rob")
+        self.assertNotIn("about rob", page)
+
     def test_errors_are_reported_not_fatal(self):
         text, err = self.s.tool("edit_block", block="nope", text="x")
         self.assertTrue(err)
