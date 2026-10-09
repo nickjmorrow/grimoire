@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grimoire icon explorations, round seven</title>
+<style>
+  :root { --navy:#0b1120; --gold:#ffcc33; --gold-lt:#ffe08a; --bg:#222a42; --card:#2b3452; --ink:#eef0f6; --mute:#a3abc4; }
+  * { box-sizing: border-box; }
+  body { margin:0; background: radial-gradient(1200px 700px at 20% -10%, #333f66, var(--bg) 60%); color:var(--ink);
+         font: 16px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; min-height:100vh; }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 24px 72px; }
+  h1 { font: 600 30px/1.2 "New York", Georgia, serif; margin: 0 0 6px; letter-spacing:.2px; }
+  .lede { color: var(--mute); margin: 0 0 36px; max-width: 62ch; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }
+  .card { background: var(--card); border-radius: 18px; padding: 22px; display:flex; flex-direction:column; gap:14px; }
+  .card.current { outline: 1px dashed #5a6690; background: transparent; }
+  .big { display:flex; justify-content:center; }
+  .big svg { width: 100%; max-width: 300px; height:auto; }
+  .meta h2 { font-size: 17px; margin: 0; display:flex; gap:10px; align-items:baseline; }
+  .meta h2 b { color: var(--gold); font: 600 13px/1 ui-monospace, Menlo, monospace; }
+  .meta p { margin: 4px 0 0; color: var(--mute); font-size: 14px; }
+  .sizes { display:flex; align-items:flex-end; gap: 18px; padding-top: 12px; border-top: 1px solid #3d4870; }
+  .sizes figure { margin:0; text-align:center; font-size: 11px; color: var(--mute); }
+  .sizes svg { display:block; margin: 0 auto 4px; }
+  .sizes .ios svg { border-radius: 22%; overflow:hidden; }
+  .sizes.light { background:#e9ecf4; border-radius:12px; padding:12px; border-top:none; margin-top:-4px; }
+  .sizes.light figure { color:#5b6482; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; padding:22px; border-radius:18px; margin: 0 0 22px; align-items:flex-end; }
+  .row.dark { background:#10162a; } .row.light { background:#e9ecf4; }
+  .row figure { margin:0; text-align:center; font-size:11px; color:var(--mute); } .row.light figure { color:#5b6482; }
+  .row .grp { display:flex; gap:14px; align-items:flex-end; }
+  .big { cursor: zoom-in; }
+  #zoom { position:fixed; inset:0; background:rgba(8,10,20,.85); display:none; align-items:center; justify-content:center; z-index:9; cursor:zoom-out; }
+  #zoom.on { display:flex; } #zoom svg { width:min(92vmin,1024px); height:auto; }
+  footer { margin-top: 36px; color: var(--mute); font-size: 14px; max-width: 70ch; }
+  footer code { color: var(--gold-lt); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Grimoire icon, round seven</h1>
+  <p class="lede">Spellbooks dropped. The six-fold diagram with a moon (C2) and with a sun (C3): heavier strokes, solid shapes that survive 16px, the same margins and the same navy-and-gold palette. Click any large icon to see it at 1024.</p>
+  <div id="family"></div>
+  <div class="grid" id="grid"></div>
+  <div id="zoom"></div>
+  <footer>Pick one and I’ll fold it into <code>tools/make-icon.swift</code> and regenerate the Mac and iOS asset sets.</footer>
+</main>
+
+<!-- artwork symbols (no background), 1024 viewBox -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="200" y1="200" x2="824" y2="824">
+      <stop offset="0" stop-color="#ffe08a"/><stop offset="1" stop-color="#ffcc33"/>
+    </linearGradient>
+    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="512" cy="400" r="640"><stop offset="0" stop-color="#ffcc33" stop-opacity=".045"/><stop offset="1" stop-color="#ffcc33" stop-opacity="0"/></radialGradient>
+  </defs>
+  <g id="symbols"></g>
+</svg>
+
+<script>
+const C = 512, NAVY = '#0b1120', G = 'url(#gold)';
+const rad = d => d * Math.PI / 180;
+const pt = (r, deg, cx = C, cy = C) => [cx + r * Math.sin(rad(deg)), cy - r * Math.cos(rad(deg))];
+const f = n => +n.toFixed(2);
+const P = a => a.map(p => f(p[0]) + ',' + f(p[1])).join(' ');
+let uid = 0;
+
+// a crescent: disc minus an offset disc. dir = direction (deg, 0=up, clockwise) the horns' open side faces.
+function crescent(cx, cy, r, dir = 45) {
+  const id = 'm' + (uid++);
+  const [ox, oy] = pt(r * 0.58, dir, 0, 0);
+  return `<mask id="${id}" maskUnits="userSpaceOnUse" x="${cx-r-4}" y="${cy-r-4}" width="${2*r+8}" height="${2*r+8}">
+      <rect x="${cx-r-4}" y="${cy-r-4}" width="${2*r+8}" height="${2*r+8}" fill="#fff"/>
+      <circle cx="${f(cx+ox)}" cy="${f(cy+oy)}" r="${f(r*0.86)}" fill="#000"/></mask>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${G}" mask="url(#${id})"/>`;
+}
+const ring = (r, w, op = 1, cx = C, cy = C) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${G}" stroke-width="${w}" opacity="${op}"/>`;
+const dot = (x, y, r) => `<circle cx="${f(x)}" cy="${f(y)}" r="${r}" fill="${G}"/>`;
+const stroke = (w, extra = '') => `fill="none" stroke="${G}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}`;
+const ticks = (r1, r2, n, w, op = 1, offset = 0) => Array.from({length: n}, (_, i) => {
+  const [x1, y1] = pt(r1, offset + i * 360 / n), [x2, y2] = pt(r2, offset + i * 360 / n);
+  return `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}" stroke="${G}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+}).join('');
+
+// moon phase disc, p in [0,1): 0 new, .25 first quarter, .5 full, .75 last quarter
+function phase(cx, cy, r, p) {
+  const out = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${G}" stroke-width="7" opacity="${p === 0 ? 1 : .55}"/>`;
+  if (p === 0) return out;
+  if (p === .5) return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${G}"/>`;
+  const q = p < .5 ? p : 1 - p;
+  const rx = Math.max(Math.abs(Math.cos(2 * Math.PI * q)) * r, .01);
+  const sweep = q < .25 ? 0 : 1;
+  const d = `M${cx},${cy - r} A${r},${r} 0 0 1 ${cx},${cy + r} A${rx},${r} 0 0 ${sweep} ${cx},${cy - r}Z`;
+  const flip = p > .5 ? ` transform="translate(${2 * cx},0) scale(-1,1)"` : '';
+  return out + `<path d="${d}" fill="${G}"${flip}/>`;
+}
+
+const star = (cx, cy, R, r, n, rot = 0) => P(Array.from({length: 2 * n}, (_, i) => pt(i % 2 ? r : R, rot + i * 180 / n, cx, cy)));
+const line = (p, q, w, op = 1) => `<line x1="${f(p[0])}" y1="${f(p[1])}" x2="${f(q[0])}" y2="${f(q[1])}" stroke="${G}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+
+const bullet = (x, y, r = 24) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${G}"/>`;
+const bar = (x1, x2, y, w) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${G}" stroke-width="${w}" stroke-linecap="round"/>`;
+
+const stk = (w, col = G, extra = '') => `fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${extra}`;
+const ln = (p, q, w, col = G, op = 1) => `<line x1="${f(p[0])}" y1="${f(p[1])}" x2="${f(q[0])}" y2="${f(q[1])}" stroke="${col}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+const dt = (x, y, r, col = G) => `<circle cx="${f(x)}" cy="${f(y)}" r="${r}" fill="${col}"/>`;
+
+// four-point sparkle with concave sides
+const spark = (cx, cy, R, p = .2 * R) => `M${f(cx)},${f(cy-R)} Q${f(cx+p)},${f(cy-p)} ${f(cx+R)},${f(cy)} Q${f(cx+p)},${f(cy+p)} ${f(cx)},${f(cy+R)} Q${f(cx-p)},${f(cy+p)} ${f(cx-R)},${f(cy)} Q${f(cx-p)},${f(cy-p)} ${f(cx)},${f(cy-R)}Z`;
+
+// magic diagrams, after the circle sketches on Pale's "Extra Material": concentric rings, nodes on the rings, a sigil at the centre.
+// hole = the colour showing through hollow nodes (navy on navy ground, gold gradient on a gold cover)
+const hollow = (x, y, k, col, hole, r = 46) => dt(x, y, (r + 18) * k, hole) + dt(x, y, r * k, col) + dt(x, y, (r - 26) * k, hole);
+const solid = (x, y, k, col, hole, r = 28) => dt(x, y, (r + 12) * k, hole) + dt(x, y, r * k, col);
+
+// four-fold: outer + inner ring, hollow nodes on the compass points, small solid nodes on the diagonals, sparkle whose tips touch the inner ring
+function diagram(cx, cy, k, col = G, hole = NAVY) {
+  const R = 330 * k, r2 = 190 * k, at = (r, a) => pt(r, a, cx, cy);
+  let s = `<circle cx="${cx}" cy="${cy}" r="${f(R)}" ${stk(26 * k, col)}/><circle cx="${cx}" cy="${cy}" r="${f(r2)}" ${stk(20 * k, col)}/>`;
+  for (const a of [0, 90, 180, 270]) s += ln(at(r2, a), at(R, a), 20 * k, col);
+  for (const a of [45, 135, 225, 315]) s += dt(...at(r2, a), 22 * k, col) + solid(...at(R, a), k, col, hole);
+  for (const a of [0, 90, 180, 270]) s += hollow(...at(R, a), k, col, hole);
+  return s + `<path d="${spark(cx, cy, 180 * k)}" fill="${col}"/>`;
+}
+
+// six-fold: double outer ring, hollow nodes at six points, spokes to an inner ring, crescent at the centre
+function diagram2(cx, cy, k, col = G, hole = NAVY, centre = 'moon') {
+  const R = 340 * k, r2 = 176 * k, at = (r, a) => pt(r, a, cx, cy);
+  let s = `<circle cx="${cx}" cy="${cy}" r="${f(R)}" ${stk(22 * k, col)}/><circle cx="${cx}" cy="${cy}" r="${f(R - 46 * k)}" ${stk(12 * k, col)}/><circle cx="${cx}" cy="${cy}" r="${f(r2)}" ${stk(18 * k, col)}/>`;
+  for (const a of [0, 120, 240]) s += ln(at(r2, a), at(R, a), 18 * k, col);
+  for (const a of [60, 180, 300]) s += dt(...at(r2, a), 24 * k, col);
+  for (const a of [0, 60, 120, 180, 240, 300]) s += hollow(...at(R, a), k, col, hole, 44);
+  if (centre === 'sun') {
+    s += dt(cx, cy, 58 * k, col);
+    for (let i = 0; i < 12; i++) s += ln(at(86 * k, i * 30), at((i % 2 ? 108 : 124) * k, i * 30), 16 * k, col);
+    return s;
+  }
+  return s + crescent(cx, cy, 104 * k, 45);
+}
+
+// emblems for the book cover, drawn in one colour
+const seal = (cx, cy, k, col) => `<circle cx="${cx}" cy="${cy}" r="${138*k}" ${stk(24*k, col)}/><circle cx="${cx}" cy="${cy}" r="${106*k}" ${stk(10*k, col)}/><path d="${spark(cx, cy, 82*k)}" fill="${col}"/>`;
+const moonSeal = (cx, cy, k, col) => `<circle cx="${cx}" cy="${cy}" r="${138*k}" ${stk(24*k, col)}/>`
+  + `<mask id="ms" maskUnits="userSpaceOnUse" x="${cx-100*k}" y="${cy-100*k}" width="${200*k}" height="${200*k}"><rect x="${cx-100*k}" y="${cy-100*k}" width="${200*k}" height="${200*k}" fill="#fff"/><circle cx="${cx+36*k}" cy="${cy-30*k}" r="${72*k}" fill="#000"/></mask>`
+  + `<circle cx="${cx-6*k}" cy="${cy+4*k}" r="${84*k}" fill="${col}" mask="url(#ms)"/><path d="${spark(cx+54*k, cy-48*k, 34*k)}" fill="${col}"/>`;
+
+// feather: bezier helpers for the barb cuts
+const bz = (t, A, B, C, D) => [0,1].map(i => (1-t)**3*A[i] + 3*(1-t)**2*t*B[i] + 3*(1-t)*t**2*C[i] + t**3*D[i]);
+function barbs() {
+  const A = [330,720], B = [430,610], Cc = [580,450], D = [760,262];
+  return [.2,.38,.56,.74].map(t => {
+    const p = bz(t, A, B, Cc, D), q = bz(t + .01, A, B, Cc, D), a = Math.atan2(q[1]-p[1], q[0]-p[0]);
+    const cut = (sgn, len) => { const th = a + sgn * 1.0, s = [p[0] + 16 * Math.cos(th), p[1] + 16 * Math.sin(th)], e = [p[0] + (16 + len) * Math.cos(th), p[1] + (16 + len) * Math.sin(th)];
+      return `<line x1="${f(s[0])}" y1="${f(s[1])}" x2="${f(e[0])}" y2="${f(e[1])}" stroke="${NAVY}" stroke-width="15" stroke-linecap="round"/>`; };
+    return cut(1, 86 - t * 50) + cut(-1, 54 - t * 36);
+  }).join('');
+}
+
+const book = (art) => `<rect x="262" y="190" width="470" height="640" rx="46" fill="${G}"/>`
+  + `<rect x="262" y="190" width="104" height="640" rx="46" fill="${NAVY}" fill-opacity=".2"/>`
+  + `<line x1="366" y1="208" x2="366" y2="812" stroke="${NAVY}" stroke-width="20"/>`
+  + art;
+
+const icons = [
+  { id: 'c', name: 'Magic diagram', blurb: 'Four-fold and symmetric: two rings, hollow nodes on the compass points, small nodes on the diagonals, and a sparkle whose tips touch the inner ring. After the circle sketches on Pale’s Extra Material page.',
+    art: () => diagram(512, 512, 1.02) },
+  { id: 'c2', name: 'Diagram with moon', blurb: 'Six-fold: a double outer ring, hollow nodes at six points, spokes to an inner ring, and a crescent at the centre.',
+    art: () => diagram2(512, 512, 1.02) },
+  { id: 'c3', name: 'Diagram with sun', blurb: 'Same six-fold diagram with a sun at the centre: a smaller solid disc and twelve rays, alternating long and short, kept clear of the inner ring.',
+    art: () => diagram2(512, 512, 1.02, G, NAVY, 'sun') },
+];
+
+const current = { id: 'cur', name: 'Current', blurb: 'The crescent alone, for comparison.', art: () => crescent(C - 6, C, 247, 45) };
+
+const sym = document.getElementById('symbols');
+[current, ...icons].forEach(i => {
+  sym.insertAdjacentHTML('beforeend', `<symbol id="ic-${i.id}" viewBox="0 0 1024 1024">${i.art()}</symbol>`);
+});
+
+const mac = (id, px) => `<svg width="${px}" height="${px}" viewBox="0 0 1024 1024"><defs><filter id="sh${id}${px}" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity=".4"/></filter></defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="${NAVY}" filter="url(#sh${id}${px})"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#glow)"/>
+  <rect x="101" y="101" width="822" height="822" rx="185" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
+  <use href="#ic-${id}" x="100" y="100" width="824" height="824"/></svg>`;
+const ios = (id, px) => `<svg width="${px}" height="${px}" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="${NAVY}"/><rect width="1024" height="1024" fill="url(#glow)"/><use href="#ic-${id}"/></svg>`;
+const figs = (id, sizes) => sizes.map(s => `<figure>${mac(id, s)}${s}</figure>`).join('');
+
+// family strip on dark and light wallpapers
+document.getElementById('family').innerHTML = ['dark', 'light'].map(t => `<div class="row ${t}">`
+  + icons.map(i => `<div class="grp">${figs(i.id, [128, 64, 32, 16])}</div>`).join('') + '</div>').join('');
+
+const grid = document.getElementById('grid');
+[current, ...icons].forEach((i, n) => {
+  const label = n === 0 ? '' : `<b>${i.id.toUpperCase()}</b>`;
+  grid.insertAdjacentHTML('beforeend', `
+  <article class="card ${n === 0 ? 'current' : ''}">
+    <div class="big" data-id="${i.id}">${mac(i.id, 300)}</div>
+    <div class="meta"><h2>${label}${i.name}</h2><p>${i.blurb}</p></div>
+    <div class="sizes">${figs(i.id, [64, 32, 16])}<figure class="ios" style="margin-left:auto">${ios(i.id, 64)}iOS</figure></div>
+    <div class="sizes light">${figs(i.id, [64, 32, 16])}</div>
+  </article>`);
+});
+const zoom = document.getElementById('zoom');
+document.querySelectorAll('.big').forEach(b => b.onclick = () => { zoom.innerHTML = mac(b.dataset.id + '', 1024); zoom.classList.add('on'); });
+zoom.onclick = () => zoom.classList.remove('on');
+</script>
+</body>
+</html>
