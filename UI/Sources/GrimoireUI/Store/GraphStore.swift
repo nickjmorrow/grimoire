@@ -47,6 +47,9 @@ public final class GraphStore {
     /// Bumped on every database commit; views that list things read it to refresh.
     public private(set) var revision = 0
     public static let maxPanes = 3
+    /// The day the journals view treats as today; `refreshToday` moves it on when midnight passes, even if the window was left open.
+    public private(set) var today = JournalDate.today()
+    @ObservationIgnored private var todayEnds = GraphStore.nextMidnight(after: Date())
 
     @ObservationIgnored private var watcher: ChangeWatcher?
     @ObservationIgnored private var lastVersion: Int64 = 0
@@ -99,7 +102,7 @@ public final class GraphStore {
         source.setEventHandler { [weak self] in
             guard let watcher else { return }
             let v = watcher.version()
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.noteVersion(v) } }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.noteVersion(v); self?.refreshToday() } }
         }
         source.resume()
         pollSource = source
@@ -157,6 +160,18 @@ public final class GraphStore {
     }
 
     public func stop() { quitObserver.map(NotificationCenter.default.removeObserver); quitObserver = nil; pollSource?.cancel(); pollSource = nil; themes.stopWatching(); syncTimer?.invalidate(); flushAll() }
+
+    /// Moves `today` to the current date once the local day has rolled over (cheap: a date comparison until then).
+    func refreshToday(now: Date = Date()) {
+        guard now >= todayEnds else { return }
+        todayEnds = GraphStore.nextMidnight(after: now)
+        let current = JournalDate.today(now: now)
+        if current != today { today = current; revision += 1 }
+    }
+
+    private static func nextMidnight(after date: Date) -> Date {
+        Calendar.current.nextDate(after: date, matching: DateComponents(hour: 0, minute: 0, second: 0), matchingPolicy: .nextTime) ?? date.addingTimeInterval(3600)
+    }
 
     func noteVersion(_ v: Int64) {
         guard v != lastVersion else { return }

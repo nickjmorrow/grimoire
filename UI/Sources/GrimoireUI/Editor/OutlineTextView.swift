@@ -27,6 +27,8 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
     private var base: [NSAttributedString.Key: Any]
     private var lastRowCount = 0
     private var restyling = false
+    private var undoNotifyPending = false
+    private(set) var ghostShown = false
     /// Rows whose formatting syntax is showing (the bullets the selection is in, while the editor has focus).
     private var revealedRows: Set<Int> = []
 
@@ -158,6 +160,17 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
 
     public func textStorage(_ storage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions, range editedRange: NSRange, changeInLength delta: Int) {
         guard editedMask.contains(.editedCharacters), !restyling else { return }
+        // An undo or redo changes the text without going through didChangeText: tell the model (so it saves what the screen now shows,
+        // instead of the database overwriting it) and refresh the derived state, once the storage is done editing.
+        if (undoManager?.isUndoing == true || undoManager?.isRedoing == true), !undoNotifyPending {
+            undoNotifyPending = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                undoNotifyPending = false
+                didChangeText()
+                keepCaretInsideABlock()
+            }
+        }
         let ns = storage.string as NSString
         guard ns.length > 0 else { return }
         var start = min(editedRange.location, ns.length)
@@ -177,11 +190,19 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         restyling = false
     }
 
+    /// Undo leaves the caret at the end of the restored paragraph, which for the last bullet is below it (on no block); put it back at the end of that bullet.
+    private func keepCaretInsideABlock() {
+        guard let storage = textStorage, storage.length > 0, selectedRange().length == 0, selectedRange().location == storage.length,
+              (storage.string as NSString).character(at: storage.length - 1) == 0x0A else { return }
+        setSelectedRange(NSRange(location: storage.length - 1, length: 0))
+    }
+
     /// Reveals the formatting syntax of the bullets the selection is in and conceals it everywhere else.
     /// `force` restyles the revealed rows even if they were already revealed (an edit just concealed them).
     func updateRevealedRows(force: Bool = false, focused: Bool? = nil) {
         guard let storage = textStorage, storage.editedMask.isEmpty else { return }
         let isFocused = focused ?? (window?.firstResponder === self)
+        refreshGhostBullet(focused: isFocused)
         let wanted: Set<Int> = isFocused ? Set(selection.rowRange) : []
         let conceal = revealedRows.subtracting(wanted)
         let reveal = force ? wanted : wanted.subtracting(revealedRows)
@@ -396,7 +417,67 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         guard let layout = textLayoutManager, let container = textContainer else { return 100 }
         container.size = NSSize(width: max(100, width - textContainerInset.width * 2), height: CGFloat.greatestFiniteMagnitude)
         layout.ensureLayout(for: layout.documentRange)
-        return ceil(layout.usageBoundsForTextContainer.maxY) + textContainerInset.height * 2
+        return ceil(layout.usageBoundsForTextContainer.maxY) + textContainerInset.height * 2 + Self.bottomStrip
+    }
+
+    /// Empty room under the last bullet: clicking in it puts the caret on a new line below (shown by a ghost bullet).
+    static let bottomStrip: CGFloat = 26
+
+    // MARK: ghost bullet
+
+    /// True when the caret rests on the empty line under the last bullet, where typing adds a new bullet.
+    private var caretBelowLastBullet: Bool {
+        guard let storage = textStorage, storage.length > 0, selectedRange().length == 0, selectedRange().location == storage.length else { return false }
+        return (storage.string as NSString).character(at: storage.length - 1) == 0x0A
+    }
+
+    private func clickIsBelowLastBullet(_ p: NSPoint) -> Bool {
+        guard let layout = textLayoutManager, let storage = textStorage, storage.length > 0 else { return false }
+        layout.ensureLayout(for: layout.documentRange)
+        return p.y > layout.usageBoundsForTextContainer.maxY + textContainerInset.height
+    }
+
+    /// Puts the caret on the line below the last bullet; if that bullet is still empty, just on it (no second empty bullet).
+    private func placeCaretBelowLastBullet() {
+        guard let storage = textStorage else { return }
+        let rows = OutlineStorage.rowRanges(in: storage)
+        if let last = rows.last, last.length <= 1 {
+            setSelectedRange(NSRange(location: last.location, length: 0))
+        } else {
+            setSelectedRange(NSRange(location: storage.length, length: 0))
+        }
+    }
+
+    fileprivate func refreshGhostBullet(focused: Bool) {
+        let show = focused && caretBelowLastBullet
+        if show || ghostShown { needsDisplay = true }
+        ghostShown = show
+    }
+
+    /// Centre of the faint bullet for the empty line under the last bullet: the last bullet's own x, on the caret's line.
+    private func ghostBulletCenter() -> NSPoint? {
+        guard let storage = textStorage, let layout = textLayoutManager, let content = layout.textContentManager, window != nil else { return nil }
+        guard let lastRow = OutlineStorage.rowRanges(in: storage).last,
+              let loc = content.location(content.documentRange.location, offsetBy: lastRow.location),
+              let fragment = layout.textLayoutFragment(for: loc) as? OutlineLayoutFragment,
+              let line = fragment.textLineFragments.first, let win = window else { return nil }
+        let m = fragment.metrics
+        let b = line.typographicBounds
+        let origin = textContainerOrigin
+        let cx = fragment.layoutFragmentFrame.origin.x + origin.x + b.origin.x - m.linePadding - m.gutter / 2
+        let cyLast = fragment.layoutFragmentFrame.origin.y + origin.y + b.origin.y + line.glyphOrigin.y - m.fontSize * 0.34
+        let lastTop = convert(win.convertFromScreen(firstRect(forCharacterRange: NSRange(location: lastRow.location, length: 0), actualRange: nil)), from: nil).minY
+        return NSPoint(x: cx, y: cyLast + (caretRect().minY - lastTop))
+    }
+
+    public override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard ghostShown, caretBelowLastBullet, let c = ghostBulletCenter(), let context = NSGraphicsContext.current?.cgContext else { return }
+        let m = OutlineMetrics(theme: theme)
+        context.saveGState()
+        context.setFillColor(m.bullet.withAlphaComponent(0.4).cgColor)
+        context.fillEllipse(in: CGRect(x: c.x - m.bulletRadius, y: c.y - m.bulletRadius, width: m.bulletRadius * 2, height: m.bulletRadius * 2))
+        context.restoreGState()
     }
 
     // MARK: structural edits
@@ -573,6 +654,11 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
     public override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         let flags = event.modifierFlags
+        if clickIsBelowLastBullet(p) {
+            window?.makeFirstResponder(self)
+            placeCaretBelowLastBullet()
+            return
+        }
         if let hit = fragmentHit(at: p), let storage = textStorage {
             let doc = currentDoc
             // 1. the bullet / checkbox gutter

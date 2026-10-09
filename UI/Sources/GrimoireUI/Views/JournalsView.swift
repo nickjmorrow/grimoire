@@ -16,7 +16,7 @@ struct JournalsView: View {
     @State private var heights: [String: CGFloat] = [:]
 
     var body: some View {
-        let today = JournalDate.today()
+        let today = store.today
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 day(today, pageID: today.pageID, focus: true)

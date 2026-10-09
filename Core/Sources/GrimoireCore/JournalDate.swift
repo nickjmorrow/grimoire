@@ -57,10 +57,10 @@ public struct JournalDate: Hashable, Comparable, Codable, Sendable {
         return JournalDate(year: c.year!, month: c.month!, day: c.day!)!
     }
 
-    public static func today(in tz: TimeZone = .current) -> JournalDate {
+    public static func today(in tz: TimeZone = .current, now: Date = Date()) -> JournalDate {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
-        let c = cal.dateComponents([.year, .month, .day], from: Date())
+        let c = cal.dateComponents([.year, .month, .day], from: now)
         return JournalDate(year: c.year!, month: c.month!, day: c.day!)!
     }
 
