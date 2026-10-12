@@ -43,7 +43,7 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
         smartQuotesType = .no
         smartDashesType = .no
         smartInsertDeleteType = .no
-        spellCheckingType = .yes
+        spellCheckingType = .no
         backgroundColor = .clear
         accessory.owner = self
         inputAccessoryView = accessory
