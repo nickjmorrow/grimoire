@@ -38,12 +38,12 @@ public final class OutlineTextView: UITextView, UITextViewDelegate, NSTextStorag
         delegate = self
         isScrollEnabled = false
         isEditable = true
-        autocorrectionType = .no
-        autocapitalizationType = .none
+        autocorrectionType = .yes
+        autocapitalizationType = .sentences
         smartQuotesType = .no
         smartDashesType = .no
         smartInsertDeleteType = .no
-        spellCheckingType = .no
+        spellCheckingType = .yes
         backgroundColor = .clear
         accessory.owner = self
         inputAccessoryView = accessory
