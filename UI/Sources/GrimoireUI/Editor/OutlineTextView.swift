@@ -54,8 +54,8 @@ public final class OutlineTextView: NSTextView, NSTextStorageDelegate {
         isHorizontallyResizable = false
         isAutomaticQuoteSubstitutionEnabled = false
         isAutomaticDashSubstitutionEnabled = false
-        isAutomaticTextReplacementEnabled = false
-        isAutomaticSpellingCorrectionEnabled = false
+        isAutomaticTextReplacementEnabled = true
+        isAutomaticSpellingCorrectionEnabled = true
         isAutomaticLinkDetectionEnabled = false
         isContinuousSpellCheckingEnabled = false
         isGrammarCheckingEnabled = false
